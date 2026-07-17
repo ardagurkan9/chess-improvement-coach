@@ -1,6 +1,7 @@
 """Shared application data models."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,3 +48,40 @@ class MoveAnalysis:
     def contains_mate_score(self) -> bool:
         """Return whether either position contains a forced-mate score."""
         return self.before.is_mate or self.after.is_mate
+
+
+class MoveQuality(StrEnum):
+    """Supported move-quality labels."""
+
+    BEST = "Best"
+    EXCELLENT = "Excellent"
+    GOOD = "Good"
+    INACCURACY = "Inaccuracy"
+    MISTAKE = "Mistake"
+    BLUNDER = "Blunder"
+
+
+@dataclass(frozen=True, slots=True)
+class MoveClassification:
+    """A move-quality label with a machine-readable explanation."""
+
+    quality: MoveQuality
+    reason: str
+    centipawn_loss: int | None
+
+
+class UserLevel(StrEnum):
+    """Explanation detail levels supported by the coach."""
+
+    BEGINNER = "Beginner"
+    INTERMEDIATE = "Intermediate"
+    ADVANCED = "Advanced"
+
+
+@dataclass(frozen=True, slots=True)
+class CommentaryResult:
+    """A user-facing explanation and its provenance."""
+
+    text: str
+    level: UserLevel
+    source: str = "template"
