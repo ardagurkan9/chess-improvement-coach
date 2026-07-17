@@ -6,12 +6,12 @@ from src.config import ConfigurationError, load_settings
 
 
 def test_load_settings_requires_stockfish_path(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.delenv("STOCKFISH_PATH", raising=False)
 
     with pytest.raises(ConfigurationError, match="STOCKFISH_PATH is not set"):
-        load_settings()
+        load_settings(env_file=tmp_path / "missing.env")
 
 
 def test_load_settings_rejects_missing_executable(
@@ -38,4 +38,3 @@ def test_load_settings_reads_valid_environment(
     assert settings.stockfish_path == stockfish_path.resolve()
     assert settings.ai_api_key == "test-key"
     assert settings.ai_model == "test-model"
-
