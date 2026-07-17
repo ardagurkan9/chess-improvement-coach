@@ -182,10 +182,16 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-Once the dependency file is available, install the dependencies:
+Install the runtime dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+For development and testing, install the development dependencies instead:
+
+```bash
+pip install -r requirements-dev.txt
 ```
 
 Copy `.env.example` to `.env` and enter your own values:
@@ -212,7 +218,7 @@ pytest
 
 ## Development Roadmap
 
-- [ ] Project structure, dependencies, and environment configuration
+- [x] Project structure, dependencies, and environment configuration
 - [ ] Chessboard and move validation
 - [ ] Stockfish connection and position analysis
 - [ ] Single-move analysis from the player's perspective
