@@ -73,13 +73,13 @@ The language model does not choose the best move or evaluate the position. Stock
 The initial classification thresholds are planned as follows:
 
 | Centipawn loss | Classification |
-| ---: | --- |
-| 0–15 | Best |
-| 16–40 | Excellent |
-| 41–80 | Good |
-| 81–150 | Inaccuracy |
-| 151–300 | Mistake |
-| 301+ | Blunder |
+| -------------: | -------------- |
+|          0–15 | Best           |
+|         16–40 | Excellent      |
+|         41–80 | Good           |
+|        81–150 | Inaccuracy     |
+|       151–300 | Mistake        |
+|           301+ | Blunder        |
 
 These values are not absolute chess rules. Forced moves, equivalent candidates, and mating opportunities must be evaluated separately.
 
@@ -94,11 +94,11 @@ These values are not absolute chess rules. Forced moves, equivalent candidates, 
 
 ## User Levels
 
-| Level | Explanation style |
-| --- | --- |
-| Beginner | Short explanations focused on development, center control, king safety, and other fundamental principles |
-| Intermediate | Tactical ideas, pawn structures, weak squares, and short variations |
-| Advanced | Candidate move comparisons, longer variations, and positional plans |
+| Level        | Explanation style                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------------------------- |
+| Beginner     | Short explanations focused on development, center control, king safety, and other fundamental principles |
+| Intermediate | Tactical ideas, pawn structures, weak squares, and short variations                                      |
+| Advanced     | Candidate move comparisons, longer variations, and positional plans                                      |
 
 ## Technology Stack
 
@@ -143,15 +143,15 @@ explainable-chess-coach/
 
 Core module responsibilities:
 
-| Module | Responsibility |
-| --- | --- |
-| `game.py` | Board state, move validation, game result, and move history |
-| `engine.py` | Stockfish process, evaluation, best move, PV, and MultiPV |
-| `analysis.py` | Perspective conversion, score comparison, and centipawn loss |
-| `move_classifier.py` | Move quality, thresholds, and special mate cases |
-| `commentary.py` | Template- or language-model-based educational explanations |
-| `models.py` | Data models shared across the application |
-| `report.py` | End-of-game statistics and PGN output |
+| Module                 | Responsibility                                               |
+| ---------------------- | ------------------------------------------------------------ |
+| `game.py`            | Board state, move validation, game result, and move history  |
+| `engine.py`          | Stockfish process, evaluation, best move, PV, and MultiPV    |
+| `analysis.py`        | Perspective conversion, score comparison, and centipawn loss |
+| `move_classifier.py` | Move quality, thresholds, and special mate cases             |
+| `commentary.py`      | Template- or language-model-based educational explanations   |
+| `models.py`          | Data models shared across the application                    |
+| `report.py`          | End-of-game statistics and PGN output                        |
 
 ## Installation
 
@@ -218,9 +218,9 @@ pytest
 
 ## Development Roadmap
 
-- [x] Project structure, dependencies, and environment configuration
-- [x] Chessboard and move validation
-- [x] Stockfish connection and position analysis
+- [X] Project structure, dependencies, and environment configuration
+- [X] Chessboard and move validation
+- [X] Stockfish connection and position analysis
 - [ ] Single-move analysis from the player's perspective
 - [ ] Move classification system
 - [ ] Terminal-based game loop
