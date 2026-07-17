@@ -16,6 +16,8 @@ from src.models import (
     MoveAnalysis,
     MoveClassification,
     MoveQuality,
+    MistakeTheme,
+    ThemeDetection,
     UserLevel,
 )
 
@@ -201,3 +203,40 @@ def test_create_service_without_complete_configuration_uses_templates() -> None:
     result = service.generate(move_analysis(), classification())
 
     assert result.source == "template"
+
+
+def test_verified_theme_and_evidence_are_sent_to_gemini() -> None:
+    gemini, client = gemini_with_response(
+        "After f2f3, a verified hanging piece error occurred; Stockfish preferred e2e4."
+    )
+    detection = ThemeDetection(
+        MistakeTheme.HANGING_PIECE,
+        ("The knight can be captured by a pawn.",),
+        0.95,
+    )
+
+    gemini.generate(
+        move_analysis(), classification(), theme_detection=detection
+    )
+
+    payload = json.loads(client.models.generate_content.call_args.kwargs["contents"])
+    assert payload["verified_theme"] == "HANGING_PIECE"
+    assert payload["verified_evidence"] == [
+        "The knight can be captured by a pawn."
+    ]
+    assert payload["theme_confidence"] == 0.95
+
+
+def test_template_can_explain_verified_theme_without_gemini() -> None:
+    detection = ThemeDetection(
+        MistakeTheme.MATERIAL_LOSS,
+        ("The verified line loses one pawn.",),
+        0.9,
+    )
+
+    result = TemplateCommentary().generate(
+        move_analysis(), classification(), theme_detection=detection
+    )
+
+    assert "Verified theme: Material Loss" in result.text
+    assert "verified line loses one pawn" in result.text

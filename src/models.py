@@ -86,3 +86,53 @@ class CommentaryResult:
     level: UserLevel
     source: str = "template"
     fallback_reason: str | None = None
+
+
+class MistakeTheme(StrEnum):
+    """Deterministically detectable mistake themes."""
+
+    HANGING_PIECE = "HANGING_PIECE"
+    MISSED_MATE = "MISSED_MATE"
+    ALLOWED_MATE = "ALLOWED_MATE"
+    MATERIAL_LOSS = "MATERIAL_LOSS"
+    KING_SAFETY = "KING_SAFETY"
+    GENERAL_ERROR = "GENERAL_ERROR"
+
+
+@dataclass(frozen=True, slots=True)
+class ThemeDetection:
+    """A mistake theme supported by explicit chess evidence."""
+
+    theme: MistakeTheme
+    evidence: tuple[str, ...]
+    confidence: float
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("Theme confidence must be between 0 and 1.")
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzedMove:
+    """A user move together with its analysis and quality label."""
+
+    analysis: MoveAnalysis
+    classification: MoveClassification
+    theme_detection: ThemeDetection | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GameReport:
+    """Aggregated coaching data for one completed game."""
+
+    result: str
+    player_is_white: bool
+    total_user_moves: int
+    average_centipawn_loss: float | None
+    quality_counts: dict[MoveQuality, int]
+    theme_counts: dict[MistakeTheme, int]
+    missed_mates: int
+    allowed_mates: int
+    biggest_error: AnalyzedMove | None
+    improvement_areas: tuple[str, ...]
+    pgn: str

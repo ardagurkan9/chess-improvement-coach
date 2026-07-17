@@ -8,6 +8,8 @@ from src.models import (
     MoveAnalysis,
     MoveClassification,
     MoveQuality,
+    MistakeTheme,
+    ThemeDetection,
     UserLevel,
 )
 
@@ -35,6 +37,7 @@ class CommentaryGenerator(Protocol):
         classification: MoveClassification,
         *,
         level: UserLevel = UserLevel.BEGINNER,
+        theme_detection: ThemeDetection | None = None,
     ) -> CommentaryResult: ...
 
 
@@ -51,6 +54,7 @@ class TemplateCommentary:
         classification: MoveClassification,
         *,
         level: UserLevel = UserLevel.BEGINNER,
+        theme_detection: ThemeDetection | None = None,
     ) -> CommentaryResult:
         """Build an explanation using only supplied engine analysis."""
         if analysis.allowed_forced_mate:
@@ -70,6 +74,15 @@ class TemplateCommentary:
         text = f"{QUALITY_OPENINGS[classification.quality]} {core}"
         if detail:
             text = f"{text} {detail}"
+        if (
+            theme_detection is not None
+            and theme_detection.theme is not MistakeTheme.GENERAL_ERROR
+        ):
+            evidence = " ".join(theme_detection.evidence)
+            text = (
+                f"{text} Verified theme: "
+                f"{theme_detection.theme.value.replace('_', ' ').title()}. {evidence}"
+            )
         return CommentaryResult(text=text, level=level)
 
     @staticmethod
@@ -128,10 +141,13 @@ class GeminiCommentary:
         "You are a chess coach explaining a verified Stockfish analysis. "
         "Do not choose a different best move. Do not invent a tactic, threat, "
         "mistake theme, board feature, opening name, plan, positional concept, "
-        "or continuation. Do not explain why either move is good or bad. The "
+        "or continuation. You may explain a verified_theme only when it is "
+        "present, using only verified_evidence. Do not explain why either move "
+        "is good or bad beyond that evidence. The "
         "only permitted facts are the classification, centipawn loss, numeric "
-        "evaluation change, mate flags, played move, and Stockfish best move in "
-        "the payload. Mention both moves exactly as supplied. Write at most two "
+        "evaluation change, mate flags, played move, Stockfish best move, and "
+        "any explicit verified theme evidence in the payload. Mention both moves "
+        "exactly as supplied. Write at most two "
         "short sentences in English with no markdown."
     )
 
@@ -167,9 +183,12 @@ class GeminiCommentary:
         classification: MoveClassification,
         *,
         level: UserLevel = UserLevel.BEGINNER,
+        theme_detection: ThemeDetection | None = None,
     ) -> CommentaryResult:
         """Request and validate a grounded explanation from Gemini."""
-        payload = self._payload(analysis, classification, level)
+        payload = self._payload(
+            analysis, classification, level, theme_detection=theme_detection
+        )
         try:
             response = self.client.models.generate_content(
                 model=self.model,
@@ -192,8 +211,10 @@ class GeminiCommentary:
         analysis: MoveAnalysis,
         classification: MoveClassification,
         level: UserLevel,
+        *,
+        theme_detection: ThemeDetection | None,
     ) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "task": "Explain this verified Stockfish move analysis.",
             "user_level": level.value,
             "played_move": analysis.played_move,
@@ -217,6 +238,11 @@ class GeminiCommentary:
                 "Do not infer anything from your general knowledge of the moves.",
             ],
         }
+        if theme_detection is not None:
+            payload["verified_theme"] = theme_detection.theme.value
+            payload["verified_evidence"] = list(theme_detection.evidence)
+            payload["theme_confidence"] = theme_detection.confidence
+        return payload
 
     @staticmethod
     def _validate_response(text: str, analysis: MoveAnalysis) -> None:
@@ -247,10 +273,14 @@ class CommentaryService:
         classification: MoveClassification,
         *,
         level: UserLevel = UserLevel.BEGINNER,
+        theme_detection: ThemeDetection | None = None,
     ) -> CommentaryResult:
         """Return AI commentary when safe, otherwise deterministic commentary."""
         fallback = self.template.generate(
-            analysis, classification, level=level
+            analysis,
+            classification,
+            level=level,
+            theme_detection=theme_detection,
         )
         if self.ai is None:
             return fallback
@@ -258,7 +288,12 @@ class CommentaryService:
             return fallback
 
         try:
-            result = self.ai.generate(analysis, classification, level=level)
+            result = self.ai.generate(
+                analysis,
+                classification,
+                level=level,
+                theme_detection=theme_detection,
+            )
         except Exception as error:
             return CommentaryResult(
                 text=fallback.text,

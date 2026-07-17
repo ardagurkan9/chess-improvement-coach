@@ -51,6 +51,10 @@ def test_complete_terminal_game_reaches_checkmate() -> None:
     assert "Stockfish plays: d8h4" in output
     assert any("Black wins by checkmate" in line for line in output)
     assert any("f2f3 e7e5 g2g4 d8h4" in line for line in output)
+    assert "=== Game Report ===" in output
+    assert "User moves analyzed: 2" in output
+    assert "=== PGN ===" in output
+    assert any("1. f3 e5 2. g4 Qh4# 0-1" in line for line in output)
 
 
 def test_invalid_color_and_move_are_retried() -> None:

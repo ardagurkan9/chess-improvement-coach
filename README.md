@@ -347,8 +347,8 @@ pytest
 - [x] Terminal-based game loop
 - [x] Template-based explanations
 - [x] Language model integration with a safe fallback
-- [ ] End-of-game report and PGN output
-- [ ] Evidence-based mistake-theme detection
+- [x] End-of-game report and PGN output
+- [x] Evidence-based mistake-theme detection
 - [ ] PostgreSQL, SQLAlchemy, Alembic, and repository infrastructure
 - [ ] Persistent game and move-analysis history
 - [ ] Personal mistake library and recurring-theme statistics

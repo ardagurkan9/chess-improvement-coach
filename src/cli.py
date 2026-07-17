@@ -7,8 +7,19 @@ import chess
 from src.analysis import AnalysisError, MoveAnalyzer, PositionAnalyzer
 from src.commentary import CommentaryGenerator, CommentaryService
 from src.game import ChessGame, MoveError
-from src.models import EngineResult, MoveAnalysis, MoveClassification, UserLevel
+from src.models import (
+    AnalyzedMove,
+    EngineResult,
+    GameReport,
+    MoveAnalysis,
+    MoveClassification,
+    MoveQuality,
+    ThemeDetection,
+    UserLevel,
+)
+from src.mistake_detector import MistakeDetector
 from src.move_classifier import MoveClassifier
+from src.report import GameReportBuilder
 
 InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
@@ -34,8 +45,11 @@ class TerminalGame:
         self.game_factory = game_factory
         self.move_analyzer = MoveAnalyzer(engine)
         self.classifier = MoveClassifier()
+        self.mistake_detector = MistakeDetector()
         self.commentary = commentary or CommentaryService()
         self.user_level = UserLevel.BEGINNER
+        self.report_builder = GameReportBuilder()
+        self.analyzed_moves: list[AnalyzedMove] = []
 
     def run(self) -> str | None:
         """Run the game loop and return its result, or ``None`` if the user quits."""
@@ -43,6 +57,7 @@ class TerminalGame:
         player_color = self._choose_color()
         self.user_level = self._choose_level()
         game = self.game_factory()
+        self.analyzed_moves = []
 
         while not game.is_game_over:
             self._show_board(game)
@@ -57,6 +72,10 @@ class TerminalGame:
         result = game.result
         self.output(f"Game over: {self._result_message(game)}")
         self.output(f"Moves: {' '.join(game.uci_history)}")
+        report = self.report_builder.build(
+            game, self.analyzed_moves, player_color=player_color
+        )
+        self._show_report(report)
         return result
 
     def _choose_color(self) -> chess.Color:
@@ -90,7 +109,11 @@ class TerminalGame:
                 continue
 
             classification = self.classifier.classify(analysis)
-            self._show_analysis(analysis, classification)
+            theme_detection = self.mistake_detector.detect(analysis, classification)
+            self.analyzed_moves.append(
+                AnalyzedMove(analysis, classification, theme_detection)
+            )
+            self._show_analysis(analysis, classification, theme_detection)
             return True
 
     def _choose_level(self) -> UserLevel:
@@ -141,7 +164,10 @@ class TerminalGame:
         return "\n".join(rows)
 
     def _show_analysis(
-        self, analysis: MoveAnalysis, classification: MoveClassification
+        self,
+        analysis: MoveAnalysis,
+        classification: MoveClassification,
+        theme_detection: ThemeDetection,
     ) -> None:
         self.output(
             f"Analysis: {classification.quality.value} - {classification.reason}"
@@ -154,8 +180,16 @@ class TerminalGame:
         )
         if analysis.before.pv:
             self.output(f"Suggested line: {' '.join(analysis.before.pv)}")
+        self.output(
+            "Theme: "
+            f"{theme_detection.theme.value} "
+            f"({theme_detection.confidence:.0%} confidence)"
+        )
         explanation = self.commentary.generate(
-            analysis, classification, level=self.user_level
+            analysis,
+            classification,
+            level=self.user_level,
+            theme_detection=theme_detection,
         )
         self.output(f"Coach [{explanation.source.title()}]: {explanation.text}")
 
@@ -177,3 +211,41 @@ class TerminalGame:
         if game.is_stalemate:
             return f"Draw by stalemate ({game.result})"
         return f"Draw ({game.result})"
+
+    def _show_report(self, report: GameReport) -> None:
+        self.output("")
+        self.output("=== Game Report ===")
+        self.output(f"Result: {report.result}")
+        self.output(f"User moves analyzed: {report.total_user_moves}")
+        average = (
+            f"{report.average_centipawn_loss:.2f}"
+            if report.average_centipawn_loss is not None
+            else "N/A"
+        )
+        self.output(f"Average centipawn loss: {average}")
+        distribution = ", ".join(
+            f"{quality.value}: {report.quality_counts[quality]}"
+            for quality in MoveQuality
+        )
+        self.output(f"Move quality: {distribution}")
+        themes = ", ".join(
+            f"{theme.value}: {count}"
+            for theme, count in report.theme_counts.items()
+            if count
+        )
+        self.output(f"Mistake themes: {themes or 'None'}")
+        self.output(f"Missed mates: {report.missed_mates}")
+        self.output(f"Allowed mates: {report.allowed_mates}")
+        if report.biggest_error is not None:
+            record = report.biggest_error
+            self.output(
+                "Biggest error: "
+                f"{record.analysis.played_move} "
+                f"({record.classification.quality.value})"
+            )
+        self.output("Improvement areas:")
+        for area in report.improvement_areas:
+            self.output(f"- {area}")
+        self.output("")
+        self.output("=== PGN ===")
+        self.output(report.pgn)
