@@ -204,11 +204,14 @@ AI_MODEL=model_name
 
 The real `.env` file and the Stockfish executable must not be committed to the repository.
 
-Once the application entry point is ready, the target command will be:
+Run the current terminal application with:
 
 ```bash
-streamlit run app.py
+python app.py
 ```
+
+The later Streamlit interface will use `streamlit run app.py` or a dedicated
+web entry point.
 
 Run the test suite with:
 
@@ -221,42 +224,14 @@ pytest
 - [X] Project structure, dependencies, and environment configuration
 - [X] Chessboard and move validation
 - [X] Stockfish connection and position analysis
-- [ ] Single-move analysis from the player's perspective
-- [ ] Move classification system
-- [ ] Terminal-based game loop
-- [ ] Template-based explanations
+- [x] Single-move analysis from the player's perspective
+- [x] Move classification system
+- [x] Terminal-based game loop
+- [x] Template-based explanations
 - [ ] Language model integration with a safe fallback
 - [ ] End-of-game report and PGN output
 - [ ] Streamlit interface
 - [ ] Automated tests, GitHub Actions, and Docker support
-
-## Out of Scope for the First Release
-
-- Online multiplayer
-- User accounts and friend system
-- Matchmaking and tournaments
-- Mobile application
-- Voice assistant
-- Development of a custom chess engine
-- Training a language model from scratch
-
-## Success Criteria
-
-The first stable release will be considered complete when:
-
-- The user can play a complete game against Stockfish.
-- Illegal moves are rejected and special chess rules work correctly.
-- Every user move is analyzed from the correct perspective.
-- The best move, a short variation, and the move classification are displayed.
-- Centipawn loss and mate scores are handled correctly.
-- Explanations are grounded in Stockfish analysis.
-- The application continues to work when the AI service is unavailable.
-- Basic statistics and a PGN are generated at the end of the game.
-- Critical behavior is covered by automated tests.
-
-## Contributing
-
-The project is in an early stage of development. To contribute, open an issue or submit a pull request describing the purpose of the change and how it was tested.
 
 ## License
 
