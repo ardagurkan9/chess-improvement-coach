@@ -49,6 +49,11 @@ Stockfish plays its response
 
 The language model does not choose the best move or evaluate the position. Stockfish is responsible for both. The language model only makes engine analysis easier to understand and must not present suggestions unsupported by Stockfish as facts.
 
+The same rule applies to mistake themes: the language model must not decide why
+a move was wrong. The application derives the theme from board state and
+Stockfish evidence; the language model may only explain that verified theme at
+the user's level.
+
 ## Planned Features
 
 ### Gameplay
@@ -92,6 +97,101 @@ These values are not absolute chess rules. Forced moves, equivalent candidates, 
 - Template-based fallback when the language model is unavailable
 - End-of-game error distribution, average centipawn loss, and improvement suggestions
 
+### Reliable Mistake Themes
+
+Move quality and mistake theme are treated as separate concepts:
+
+```text
+Mistake / Blunder = How costly was the move?
+Hanging piece      = What kind of error was it?
+```
+
+The first version will deliberately use a small set of themes:
+
+| Theme | Meaning |
+| --- | --- |
+| `HANGING_PIECE` | A piece was left capturable without sufficient compensation |
+| `MISSED_MATE` | The player had a forced mate but lost it |
+| `ALLOWED_MATE` | The move gave the opponent a forced mate |
+| `MATERIAL_LOSS` | The verified continuation leads to a net material loss |
+| `KING_SAFETY` | The move creates a verifiable weakness around the king |
+| `GENERAL_ERROR` | No more specific theme can be established safely |
+
+Theme detection must be deterministic and evidence-based. Mate themes come
+directly from Stockfish scores. Other themes use board comparison, attack and
+defense information, material changes, and the principal variation. When the
+available evidence is not strong enough, the application uses `GENERAL_ERROR`
+instead of guessing.
+
+A detected theme should include both evidence and confidence:
+
+```python
+ThemeDetection(
+    theme=MistakeTheme.HANGING_PIECE,
+    evidence=(
+        "The knight on e5 is attacked by the pawn on d6.",
+        "Stockfish's principal variation begins with d6e5.",
+    ),
+    confidence=0.95,
+)
+```
+
+The language model receives this verified result and follows three constraints:
+
+- Do not change the detected mistake theme.
+- Do not invent a tactic, threat, or alternative move.
+- Explain only the supplied evidence and Stockfish continuation.
+
+### Personal Mistake Tracking
+
+The project will store important mistakes so users can learn from recurring
+patterns instead of receiving only one-time move feedback. The system will:
+
+- Save analyzed games and significant mistakes
+- Group repeated mistakes by verified theme
+- Generate review positions from the FEN before each mistake
+- Let users attempt those positions again
+- Record review attempts and whether the expected move was found
+- Track improvement by theme over time
+- Schedule missed positions for another review
+
+The first review schedule can use simple intervals:
+
+```text
+Incorrect answer   -> review tomorrow
+First correct      -> review in 3 days
+Second correct     -> review in 7 days
+Third correct      -> review in 14 days
+```
+
+Database access will remain separate from chess and analysis logic through a
+repository layer:
+
+```text
+CLI / Streamlit
+      ↓
+Application service
+      ↓
+MistakeRepository / GameRepository
+      ↓
+SQLAlchemy 2
+      ↓
+PostgreSQL
+```
+
+Core persistence entities are planned as:
+
+| Entity | Stored information |
+| --- | --- |
+| `games` | Date, player color, result, PGN, engine settings, and starting FEN |
+| `move_analyses` | FENs, played and recommended moves, scores, loss, quality, PV, and depth |
+| `mistakes` | Verified theme, evidence, confidence, and review schedule |
+| `review_attempts` | Submitted move, expected move, result, duration, and attempt date |
+
+Analysis modules must not import SQLAlchemy or write to the database directly.
+They return domain results, and an application service decides what should be
+persisted through repository interfaces.
+
 ## User Levels
 
 | Level        | Explanation style                                                                                        |
@@ -110,6 +210,11 @@ These values are not absolute chess rules. Forced moves, equivalent candidates, 
 - A language model API or local model
 - GitHub Actions
 - Docker
+- PostgreSQL
+- SQLAlchemy 2
+- Alembic
+- psycopg
+- Docker Compose
 
 ## Planned Project Structure
 
@@ -122,9 +227,13 @@ explainable-chess-coach/
 │   ├── engine.py
 │   ├── analysis.py
 │   ├── move_classifier.py
+│   ├── mistake_detector.py
 │   ├── commentary.py
 │   ├── models.py
-│   └── report.py
+│   ├── report.py
+│   ├── services/
+│   └── repositories/
+├── migrations/
 ├── tests/
 │   ├── test_game.py
 │   ├── test_engine.py
@@ -149,9 +258,11 @@ Core module responsibilities:
 | `engine.py`          | Stockfish process, evaluation, best move, PV, and MultiPV    |
 | `analysis.py`        | Perspective conversion, score comparison, and centipawn loss |
 | `move_classifier.py` | Move quality, thresholds, and special mate cases             |
+| `mistake_detector.py` | Evidence-based mistake-theme detection                      |
 | `commentary.py`      | Template- or language-model-based educational explanations   |
 | `models.py`          | Data models shared across the application                    |
 | `report.py`          | End-of-game statistics and PGN output                        |
+| `repositories/`      | Database interfaces and SQLAlchemy implementations           |
 
 ## Installation
 
@@ -230,6 +341,11 @@ pytest
 - [x] Template-based explanations
 - [ ] Language model integration with a safe fallback
 - [ ] End-of-game report and PGN output
+- [ ] Evidence-based mistake-theme detection
+- [ ] PostgreSQL, SQLAlchemy, Alembic, and repository infrastructure
+- [ ] Persistent game and move-analysis history
+- [ ] Personal mistake library and recurring-theme statistics
+- [ ] Position review and spaced-repetition workflow
 - [ ] Streamlit interface
 - [ ] Automated tests, GitHub Actions, and Docker support
 
