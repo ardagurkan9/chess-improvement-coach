@@ -1,10 +1,10 @@
-# Explainable Chess Coach
+# Chess Improvement Coach
 
-> A Python-based chess coach that turns Stockfish analysis into clear, educational feedback.
+> A Python chess improvement coach that analyzes games with Stockfish, explains mistakes using AI, tracks recurring weaknesses, and turns them into practice positions.
 
 ## About the Project
 
-Explainable Chess Coach lets users play against Stockfish while analyzing their moves and explaining the results at an appropriate skill level.
+Chess Improvement Coach lets users play against Stockfish while analyzing their moves and explaining the results at an appropriate skill level.
 
 Instead of merely displaying the best move, the project aims to answer questions such as:
 
@@ -277,8 +277,8 @@ The exact installation steps will be finalized as the application code and depen
 ### Development Environment
 
 ```bash
-git clone <repository-url>
-cd chess-move-explainer
+git clone https://github.com/ardagurkan9/chess-improvement-coach.git
+cd chess-improvement-coach
 
 python -m venv .venv
 ```
@@ -326,6 +326,13 @@ Run the current terminal application with:
 
 ```bash
 python app.py
+```
+
+On Windows, the included launcher uses the project's virtual environment
+automatically, so the application can also be started with the shorter command:
+
+```powershell
+.\run
 ```
 
 The later Streamlit interface will use `streamlit run app.py` or a dedicated

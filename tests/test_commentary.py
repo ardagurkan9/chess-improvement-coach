@@ -90,13 +90,29 @@ def test_best_move_explanation_mentions_stockfish_match() -> None:
         classification(MoveQuality.BEST, 0),
     )
 
-    assert "best move" in result.text
-    assert "matches Stockfish's first choice" in result.text
+    assert "Nice move!" in result.text
+    assert "Stockfish's top choice too" in result.text
+
+
+def test_equally_strong_alternative_does_not_claim_evaluation_dropped() -> None:
+    analysis = move_analysis(played_move="b1c3", best_move="d2d4", loss=0)
+    result = TemplateCommentary().generate(
+        analysis,
+        classification(MoveQuality.BEST, 0),
+        level=UserLevel.INTERMEDIATE,
+    )
+
+    assert "just as strong" in result.text
+    assert "dropped" not in result.text
+    assert "0.00 pawns" not in result.text
 
 
 @pytest.mark.parametrize(
     ("missed", "allowed", "expected"),
-    [(True, False, "misses a forced mate"), (False, True, "opponent a forced mate")],
+    [
+        (True, False, "lets a forced mate slip away"),
+        (False, True, "opponent has a forced mate"),
+    ],
 )
 def test_mate_templates_take_priority(
     missed: bool, allowed: bool, expected: str
@@ -238,5 +254,5 @@ def test_template_can_explain_verified_theme_without_gemini() -> None:
         move_analysis(), classification(), theme_detection=detection
     )
 
-    assert "Verified theme: Material Loss" in result.text
+    assert "key issue is material loss" in result.text
     assert "verified line loses one pawn" in result.text

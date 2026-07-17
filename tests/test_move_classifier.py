@@ -71,7 +71,8 @@ def test_centipawn_boundaries(loss: int, expected: MoveQuality) -> None:
 
     assert classification.quality is expected
     assert classification.centipawn_loss == loss
-    assert str(loss) in classification.reason
+    if expected is not MoveQuality.BEST:
+        assert str(loss) in classification.reason
 
 
 def test_stockfish_first_choice_is_best_despite_small_analysis_noise() -> None:

@@ -15,12 +15,12 @@ from src.models import (
 
 
 QUALITY_OPENINGS: dict[MoveQuality, str] = {
-    MoveQuality.BEST: "This was the best move.",
-    MoveQuality.EXCELLENT: "This was an excellent move.",
-    MoveQuality.GOOD: "This was a good move.",
-    MoveQuality.INACCURACY: "This move was an inaccuracy.",
-    MoveQuality.MISTAKE: "This move was a mistake.",
-    MoveQuality.BLUNDER: "This move was a blunder.",
+    MoveQuality.BEST: "Nice move!",
+    MoveQuality.EXCELLENT: "Strong choice!",
+    MoveQuality.GOOD: "Good move.",
+    MoveQuality.INACCURACY: "A small slip here.",
+    MoveQuality.MISTAKE: "This move caused some trouble.",
+    MoveQuality.BLUNDER: "This was a costly mistake.",
 }
 
 AI_EXPLANATION_QUALITIES = frozenset(
@@ -59,13 +59,13 @@ class TemplateCommentary:
         """Build an explanation using only supplied engine analysis."""
         if analysis.allowed_forced_mate:
             core = (
-                f"{analysis.played_move} gives your opponent a forced mate. "
-                f"Stockfish preferred {analysis.best_move}."
+                f"After {analysis.played_move}, your opponent has a forced mate. "
+                f"{analysis.best_move} was the way to avoid it."
             )
         elif analysis.missed_forced_mate:
             core = (
-                f"{analysis.played_move} misses a forced mate. "
-                f"Stockfish preferred {analysis.best_move}."
+                f"{analysis.played_move} lets a forced mate slip away. "
+                f"{analysis.best_move} would have kept the mating sequence."
             )
         else:
             core = self._standard_explanation(analysis, classification)
@@ -80,8 +80,8 @@ class TemplateCommentary:
         ):
             evidence = " ".join(theme_detection.evidence)
             text = (
-                f"{text} Verified theme: "
-                f"{theme_detection.theme.value.replace('_', ' ').title()}. {evidence}"
+                f"{text} The key issue is "
+                f"{theme_detection.theme.value.replace('_', ' ').lower()}: {evidence}"
             )
         return CommentaryResult(text=text, level=level)
 
@@ -91,29 +91,37 @@ class TemplateCommentary:
     ) -> str:
         if analysis.played_move == analysis.best_move:
             return (
-                f"{analysis.played_move} matches Stockfish's first choice and "
-                "preserves the engine's preferred continuation."
+                f"{analysis.played_move} was Stockfish's top choice too, so you "
+                "found exactly what the position called for."
             )
 
         loss = classification.centipawn_loss
+        if loss == 0:
+            return (
+                f"{analysis.played_move} was just as strong as Stockfish's top "
+                f"choice, {analysis.best_move}."
+            )
+        if classification.quality is MoveQuality.BEST and loss is not None:
+            return (
+                f"{analysis.played_move} was nearly identical in strength to "
+                f"Stockfish's top choice, {analysis.best_move}."
+            )
         loss_text = (
-            f" It loses {loss} centipawns."
+            f" The evaluation dropped by about {loss / 100:.2f} pawns "
+            f"({loss} centipawns)."
             if loss is not None
-            else " The position contains a forced-mate evaluation."
+            else " There is a forced mate in the position."
         )
         return (
-            f"You played {analysis.played_move}; Stockfish preferred "
-            f"{analysis.best_move}.{loss_text}"
+            f"You chose {analysis.played_move}, but {analysis.best_move} was "
+            f"stronger.{loss_text}"
         )
 
     def _level_detail(self, analysis: MoveAnalysis, level: UserLevel) -> str:
         if level is UserLevel.BEGINNER:
-            return "Compare your move with the suggested move before continuing."
+            return "A useful habit is to pause and compare these two moves before continuing."
 
-        evaluation = (
-            f"The evaluation changed from {self._format_score(analysis.before)} "
-            f"to {self._format_score(analysis.after)}."
-        )
+        evaluation = self._evaluation_detail(analysis)
         if level is UserLevel.INTERMEDIATE:
             return evaluation
 
@@ -122,6 +130,23 @@ class TemplateCommentary:
         depth_text = f" at depth {depth}" if depth is not None else ""
         line_text = f" Stockfish's line{depth_text}: {pv}." if pv else ""
         return f"{evaluation}{line_text}"
+
+    def _evaluation_detail(self, analysis: MoveAnalysis) -> str:
+        before = analysis.before.score_cp
+        after = analysis.after.score_cp
+        scores = (
+            f"{self._format_score(analysis.before)} to "
+            f"{self._format_score(analysis.after)}"
+        )
+        if before is None or after is None:
+            return f"The engine evaluation changed from {scores}."
+
+        change = after - before
+        if abs(change) <= 15:
+            return f"The position stayed roughly stable, moving from {scores}."
+        if change > 0:
+            return f"From your perspective, the position improved from {scores}."
+        return f"From your perspective, the position worsened from {scores}."
 
     @staticmethod
     def _format_score(result: object) -> str:
@@ -138,7 +163,9 @@ class GeminiCommentary:
     """Generate constrained explanations with the Google Gemini API."""
 
     SYSTEM_INSTRUCTION = (
-        "You are a chess coach explaining a verified Stockfish analysis. "
+        "You are a friendly, concise chess coach explaining a verified Stockfish analysis. "
+        "Sound like a human coach speaking directly to a student, not an engine report. "
+        "Lead with the practical lesson and use simple, varied language. "
         "Do not choose a different best move. Do not invent a tactic, threat, "
         "mistake theme, board feature, opening name, plan, positional concept, "
         "or continuation. You may explain a verified_theme only when it is "
@@ -147,8 +174,9 @@ class GeminiCommentary:
         "only permitted facts are the classification, centipawn loss, numeric "
         "evaluation change, mate flags, played move, Stockfish best move, and "
         "any explicit verified theme evidence in the payload. Mention both moves "
-        "exactly as supplied. Write at most two "
-        "short sentences in English with no markdown."
+        "exactly as supplied. Avoid labels such as 'verified theme', robotic phrases, "
+        "and raw centipawn jargon when a plain-language description is enough. Write "
+        "at most two short sentences in English with no markdown."
     )
 
     def __init__(

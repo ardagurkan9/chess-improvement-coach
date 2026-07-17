@@ -1,7 +1,13 @@
 import chess
 
 from src.cli import TerminalGame
-from src.models import EngineResult
+from src.models import (
+    EngineResult,
+    MoveAnalysis,
+    MoveClassification,
+    MoveQuality,
+    UserLevel,
+)
 
 
 class ScriptedEngine:
@@ -98,3 +104,28 @@ def test_board_display_contains_file_and_rank_coordinates() -> None:
     assert lines[1] == "8 r n b q k b n r 8"
     assert lines[-2] == "1 R N B Q K B N R 1"
     assert lines[-1] == "  a b c d e f g h"
+
+
+def test_good_move_output_does_not_show_a_mistake_theme() -> None:
+    output: list[str] = []
+    game = TerminalGame(ScriptedEngine(), output_fn=output.append)
+    game.user_level = UserLevel.INTERMEDIATE
+    analysis = MoveAnalysis(
+        played_move="b1c3",
+        player_is_white=True,
+        fen_before=chess.STARTING_FEN,
+        fen_after=chess.STARTING_FEN,
+        before=EngineResult("d2d4", 35, None, ("d2d4",), 12),
+        after=EngineResult("d7d5", 38, None, ("d7d5",), 12),
+        centipawn_loss=0,
+        missed_forced_mate=False,
+        allowed_forced_mate=False,
+    )
+
+    game._show_analysis(
+        analysis,
+        MoveClassification(MoveQuality.BEST, "Top evaluation.", 0),
+        None,
+    )
+
+    assert not any(line.startswith("Theme:") for line in output)

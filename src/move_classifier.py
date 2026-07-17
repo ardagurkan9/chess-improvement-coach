@@ -97,11 +97,14 @@ class MoveClassifier:
         else:
             quality = MoveQuality.BLUNDER
 
-        return self._result(
-            quality,
-            analysis,
-            f"The move loses {loss} centipawns.",
-        )
+        if loss == 0:
+            reason = "The move matches Stockfish's top evaluation."
+        elif quality is MoveQuality.BEST:
+            reason = "The move is effectively tied with Stockfish's first choice."
+        else:
+            reason = f"The move loses {loss} centipawns."
+
+        return self._result(quality, analysis, reason)
 
     @staticmethod
     def _result(

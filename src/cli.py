@@ -109,7 +109,16 @@ class TerminalGame:
                 continue
 
             classification = self.classifier.classify(analysis)
-            theme_detection = self.mistake_detector.detect(analysis, classification)
+            theme_detection = (
+                self.mistake_detector.detect(analysis, classification)
+                if classification.quality
+                in {
+                    MoveQuality.INACCURACY,
+                    MoveQuality.MISTAKE,
+                    MoveQuality.BLUNDER,
+                }
+                else None
+            )
             self.analyzed_moves.append(
                 AnalyzedMove(analysis, classification, theme_detection)
             )
@@ -167,7 +176,7 @@ class TerminalGame:
         self,
         analysis: MoveAnalysis,
         classification: MoveClassification,
-        theme_detection: ThemeDetection,
+        theme_detection: ThemeDetection | None,
     ) -> None:
         self.output(
             f"Analysis: {classification.quality.value} - {classification.reason}"
@@ -180,11 +189,12 @@ class TerminalGame:
         )
         if analysis.before.pv:
             self.output(f"Suggested line: {' '.join(analysis.before.pv)}")
-        self.output(
-            "Theme: "
-            f"{theme_detection.theme.value} "
-            f"({theme_detection.confidence:.0%} confidence)"
-        )
+        if theme_detection is not None:
+            self.output(
+                "Theme: "
+                f"{theme_detection.theme.value} "
+                f"({theme_detection.confidence:.0%} confidence)"
+            )
         explanation = self.commentary.generate(
             analysis,
             classification,
