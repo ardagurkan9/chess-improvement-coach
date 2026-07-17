@@ -219,7 +219,7 @@ pytest
 ## Development Roadmap
 
 - [x] Project structure, dependencies, and environment configuration
-- [ ] Chessboard and move validation
+- [x] Chessboard and move validation
 - [ ] Stockfish connection and position analysis
 - [ ] Single-move analysis from the player's perspective
 - [ ] Move classification system

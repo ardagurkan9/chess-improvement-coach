@@ -6,4 +6,3 @@ def test_python_chess_is_available() -> None:
 
     assert board.is_valid()
     assert board.fullmove_number == 1
-
