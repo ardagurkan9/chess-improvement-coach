@@ -115,7 +115,7 @@ class GameReportBuilder:
     @staticmethod
     def _create_pgn(game: ChessGame, *, player_color: chess.Color) -> str:
         pgn_game = chess.pgn.Game.from_board(game.board)
-        pgn_game.headers["Event"] = "Explainable Chess Coach"
+        pgn_game.headers["Event"] = "Chess Improvement Coach"
         pgn_game.headers["White"] = (
             "User" if player_color == chess.WHITE else "Stockfish"
         )

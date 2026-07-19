@@ -90,7 +90,7 @@ def test_report_generates_standard_pgn_with_players_and_result() -> None:
         completed_fools_mate(), [], player_color=chess.WHITE
     )
 
-    assert '[Event "Explainable Chess Coach"]' in report.pgn
+    assert '[Event "Chess Improvement Coach"]' in report.pgn
     assert '[White "User"]' in report.pgn
     assert '[Black "Stockfish"]' in report.pgn
     assert '[Result "0-1"]' in report.pgn

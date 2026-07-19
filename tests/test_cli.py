@@ -1,4 +1,5 @@
 import chess
+from unittest.mock import MagicMock
 
 from src.cli import TerminalGame
 from src.models import (
@@ -44,10 +45,14 @@ def scripted_input(*answers: str):
 
 def test_complete_terminal_game_reaches_checkmate() -> None:
     output: list[str] = []
+    history_service = MagicMock()
+    history_service.save_completed_game.return_value = 17
+    history_service.recurring_mistakes.return_value = ()
     game = TerminalGame(
         ScriptedEngine(),
         input_fn=scripted_input("w", "1", "f2f3", "g2g4"),
         output_fn=output.append,
+        history_service=history_service,
     )
 
     result = game.run()
@@ -61,6 +66,8 @@ def test_complete_terminal_game_reaches_checkmate() -> None:
     assert "User moves analyzed: 2" in output
     assert "=== PGN ===" in output
     assert any("1. f3 e5 2. g4 Qh4# 0-1" in line for line in output)
+    assert "Game history saved with ID 17." in output
+    history_service.save_completed_game.assert_called_once()
 
 
 def test_invalid_color_and_move_are_retried() -> None:

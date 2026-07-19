@@ -119,6 +119,7 @@ class AnalyzedMove:
     analysis: MoveAnalysis
     classification: MoveClassification
     theme_detection: ThemeDetection | None = None
+    commentary: CommentaryResult | None = None
 
 
 @dataclass(frozen=True, slots=True)

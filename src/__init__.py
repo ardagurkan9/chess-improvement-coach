@@ -1,2 +1,1 @@
-"""Core package for Explainable Chess Coach."""
-
+"""Core package for Chess Improvement Coach."""

@@ -9,6 +9,7 @@ from src.commentary import CommentaryGenerator, CommentaryService
 from src.game import ChessGame, MoveError
 from src.models import (
     AnalyzedMove,
+    CommentaryResult,
     EngineResult,
     GameReport,
     MoveAnalysis,
@@ -20,6 +21,7 @@ from src.models import (
 from src.mistake_detector import MistakeDetector
 from src.move_classifier import MoveClassifier
 from src.report import GameReportBuilder
+from src.services.history_service import HistoryService
 
 InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
@@ -37,6 +39,7 @@ class TerminalGame:
         output_fn: OutputFunction = print,
         game_factory: Callable[[], ChessGame] = ChessGame,
         commentary: CommentaryGenerator | None = None,
+        history_service: HistoryService | None = None,
     ) -> None:
         self.engine = engine
         self.depth = depth
@@ -47,6 +50,7 @@ class TerminalGame:
         self.classifier = MoveClassifier()
         self.mistake_detector = MistakeDetector()
         self.commentary = commentary or CommentaryService()
+        self.history_service = history_service
         self.user_level = UserLevel.BEGINNER
         self.report_builder = GameReportBuilder()
         self.analyzed_moves: list[AnalyzedMove] = []
@@ -76,6 +80,7 @@ class TerminalGame:
             game, self.analyzed_moves, player_color=player_color
         )
         self._show_report(report)
+        self._save_history(report)
         return result
 
     def _choose_color(self) -> chess.Color:
@@ -119,10 +124,17 @@ class TerminalGame:
                 }
                 else None
             )
-            self.analyzed_moves.append(
-                AnalyzedMove(analysis, classification, theme_detection)
+            commentary = self._show_analysis(
+                analysis, classification, theme_detection
             )
-            self._show_analysis(analysis, classification, theme_detection)
+            self.analyzed_moves.append(
+                AnalyzedMove(
+                    analysis,
+                    classification,
+                    theme_detection,
+                    commentary,
+                )
+            )
             return True
 
     def _choose_level(self) -> UserLevel:
@@ -148,7 +160,7 @@ class TerminalGame:
         self.output(f"Stockfish plays: {result.best_move}")
 
     def _show_welcome(self) -> None:
-        self.output("Explainable Chess Coach")
+        self.output("Chess Improvement Coach")
         self.output("Enter moves in UCI notation, for example: e2e4")
 
     def _show_board(self, game: ChessGame) -> None:
@@ -177,7 +189,7 @@ class TerminalGame:
         analysis: MoveAnalysis,
         classification: MoveClassification,
         theme_detection: ThemeDetection | None,
-    ) -> None:
+    ) -> CommentaryResult:
         self.output(
             f"Analysis: {classification.quality.value} - {classification.reason}"
         )
@@ -202,6 +214,32 @@ class TerminalGame:
             theme_detection=theme_detection,
         )
         self.output(f"Coach [{explanation.source.title()}]: {explanation.text}")
+        return explanation
+
+    def _save_history(self, report: GameReport) -> None:
+        """Persist a completed game without making gameplay depend on the database."""
+        if self.history_service is None:
+            return
+        try:
+            game_id = self.history_service.save_completed_game(
+                report,
+                self.analyzed_moves,
+                level=self.user_level,
+            )
+            summaries = self.history_service.recurring_mistakes()
+        except Exception as error:
+            self.output(
+                "Game history could not be saved "
+                f"({type(error).__name__})."
+            )
+            return
+
+        self.output(f"Game history saved with ID {game_id}.")
+        if summaries:
+            recurring = ", ".join(
+                f"{summary.theme.value}: {summary.count}" for summary in summaries
+            )
+            self.output(f"Recurring mistakes: {recurring}")
 
     @staticmethod
     def _format_score(result: EngineResult) -> str:

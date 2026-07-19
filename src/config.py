@@ -19,6 +19,8 @@ class Settings:
     ai_provider: str | None = None
     ai_api_key: str | None = None
     ai_model: str | None = None
+    database_url: str | None = None
+    coach_username: str = "local-player"
 
 
 def load_settings(*, env_file: str | Path | None = None) -> Settings:
@@ -51,4 +53,6 @@ def load_settings(*, env_file: str | Path | None = None) -> Settings:
         ai_provider=os.getenv("AI_PROVIDER", "").strip().lower() or None,
         ai_api_key=os.getenv("AI_API_KEY", "").strip() or None,
         ai_model=os.getenv("AI_MODEL", "").strip() or None,
+        database_url=os.getenv("DATABASE_URL", "").strip() or None,
+        coach_username=os.getenv("COACH_USERNAME", "").strip() or "local-player",
     )
