@@ -1,6 +1,6 @@
 # Chess Improvement Coach
 
-Chess Improvement Coach is a working terminal MVP for playing against Stockfish and receiving evidence-grounded feedback after each move. Stockfish evaluates the chess position; deterministic Python code calculates centipawn loss, move quality, mate transitions, and conservative mistake themes; Google Gemini is optional and may only explain evidence supplied by the engine and application. The design keeps chess rules, engine integration, commentary, reporting, and persistence independently testable.
+Chess Improvement Coach is a working terminal and Streamlit application for playing against Stockfish and receiving evidence-grounded feedback after each move. Stockfish evaluates the chess position; deterministic Python code calculates centipawn loss, move quality, mate transitions, conservative mistake themes, and concrete move facts; Google Gemini is optional and may only explain evidence supplied by the engine and application. The design keeps chess rules, engine integration, commentary, reporting, and persistence independently testable.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ Chess Improvement Coach is a working terminal MVP for playing against Stockfish 
 | Area                       | Status      |
 | -------------------------- | ----------- |
 | Terminal interface         | Implemented |
-| Browser interface          | Planned     |
+| Browser interface          | In Progress |
 | Chess game logic           | Implemented |
 | Stockfish integration      | Implemented |
 | Move analysis              | Implemented |
@@ -33,6 +33,7 @@ Chess Improvement Coach is a working terminal MVP for playing against Stockfish 
 | Local PostgreSQL validation | Implemented |
 | Practice-position storage  | Implemented |
 | Interactive practice flow  | Implemented |
+| Personal progress summary  | Implemented |
 | Automated tests            | Implemented |
 | GitHub Actions CI          | Planned     |
 
@@ -50,8 +51,8 @@ The current application can complete and analyze terminal games, generate report
 - [x] SQLAlchemy persistence, Alembic migration, and Dockerized PostgreSQL
 - [x] Game history, recurring-theme counts, and practice-position storage
 - [x] Interactive practice and spaced-repetition workflow
-- [ ] Personal progress summaries
-- [ ] Streamlit browser interface
+- [x] Personal progress summaries
+- [ ] Streamlit browser interface (dashboard, practice, and click-to-move game flow implemented)
 - [ ] GitHub Actions CI and live-PostgreSQL integration tests
 
 ## How It Works
@@ -70,7 +71,8 @@ The responsibility boundaries are deliberate:
 
 - **Stockfish evaluates chess.** It supplies the best move, White-perspective centipawn or mate score, principal variation, and search depth.
 - **Deterministic application code interprets the result.** It calculates player-perspective centipawn loss, classifies the move, and detects only themes supported by board and principal-variation evidence.
-- **Gemini explains; it does not evaluate.** It receives a constrained payload and cannot replace Stockfish's best move or select an unsupported mistake theme.
+- **Deterministic application code establishes move context.** It derives concrete facts such as captures, development, central occupation, castling, promotion, check, and directly attacked pieces from the legal before/after positions.
+- **Gemini explains; it does not evaluate.** It receives a constrained payload containing verified engine, theme, and move-context evidence. It cannot replace Stockfish's best move or select an unsupported mistake theme.
 - **Persistence is separate from gameplay.** The CLI uses a history service and repository contract; SQLAlchemy details do not enter the game or analysis modules.
 
 ## Implemented Features
@@ -125,8 +127,10 @@ Each result includes evidence and a confidence value. This is intentionally a li
 ### Coaching explanations
 
 - Deterministic English templates for all move qualities and user levels.
-- Optional Gemini commentary for `Inaccuracy`, `Mistake`, and `Blunder` during games, and for every legal but incorrect practice answer.
-- Structured prompts limited to verified moves, scores, classifications, mate flags, and theme evidence.
+- Concrete move-context extraction from the board, including captures, development, central moves, castling, promotion, check, undefended moved pieces, and attacked enemy pieces.
+- Optional Gemini commentary for every move quality during games and for every legal but incorrect practice answer.
+- Structured prompts limited to verified moves, classifications, mate flags, theme evidence, and deterministic move context.
+- Coaching text prioritizes what the move accomplished and a practical lesson; it does not repeat numeric evaluation already visible in the browser evaluation bar.
 - Validation for empty, oversized, or move-omitting responses.
 - Automatic template fallback when Gemini is missing, unavailable, or returns an invalid response.
 
@@ -146,11 +150,19 @@ Optional persistence provides:
 
 - A terminal menu separates playing a new game from reviewing saved mistakes.
 - The repository retrieves the oldest practice position whose review time is due for the configured user.
+- The Streamlit practice flow first lists completed games with their mistake and due-review counts, then lets the user choose a due mistake from the selected game.
 - Answers must be legal UCI moves and are checked against the first move of the stored Stockfish principal variation.
 - Incorrect answers are reanalyzed by Stockfish and explained by Gemini when configured, with the same safe template fallback used during games.
 - Attempts and successful attempts are persisted separately. Each answer also creates an immutable history record containing the attempted move, correctness, optional quality/theme, commentary provenance, attempt time, and scheduled review time.
 - Correct reviews use 1, 3, 7, and then 14-day intervals; incorrect reviews return to a 1-day interval.
 - A position becomes `mastered` after four successful reviews. Scheduling is deterministic application logic rather than an LLM decision.
+
+### Personal progress
+
+- The terminal progress view reports completed games, analyzed moves, detected mistakes, and the most frequent mistake theme.
+- Practice metrics include position counts by status, due reviews, total attempts, correct answers, overall success rate, and the next scheduled review.
+- A recent trend compares the latest 10 answers with the preceding 10. The application reports insufficient data until 20 attempts exist instead of presenting an unstable trend.
+- Metrics are calculated from persisted records through `ProgressService`; no separate, potentially stale progress total is stored.
 
 ## Architecture
 
@@ -163,10 +175,12 @@ app.py
         +-- analysis.py -------- before/after comparison
         +-- move_classifier.py - deterministic quality labels
         +-- mistake_detector.py  evidence-based themes
+        +-- move_context.py ----- concrete facts derived from the board
         +-- commentary.py ------ templates and constrained Gemini calls
         +-- report.py ---------- aggregate report and PGN
         +-- HistoryService ----- completed-game persistence
         +-- PracticeService ---- due reviews, answer checks, scheduling
+        +-- ProgressService ---- aggregate personal progress
               +-- repository protocol
               +-- SQLAlchemy repository
                     +-- database.py
@@ -182,6 +196,8 @@ Immutable domain records live in `src/models.py`; SQLAlchemy records remain sepa
 chess-improvement-coach/
 ├── app.py
 ├── run.bat
+├── streamlit_app.py
+├── run_streamlit.bat
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── docker-compose.yml
@@ -205,6 +221,7 @@ chess-improvement-coach/
 │   ├── game.py
 │   ├── mistake_detector.py
 │   ├── models.py
+│   ├── move_context.py
 │   ├── move_classifier.py
 │   ├── report.py
 │   ├── repositories/
@@ -212,7 +229,8 @@ chess-improvement-coach/
 │   │   └── sqlalchemy_repository.py
 │   └── services/
 │       ├── history_service.py
-│       └── practice_service.py
+│       ├── practice_service.py
+│       └── progress_service.py
 └── tests/                   # pytest modules mirroring the application layers
 ```
 
@@ -308,7 +326,28 @@ Windows launchers:
 run
 ```
 
-The opening menu offers a game against Stockfish or review of due mistake positions. Before a game, the user selects an opponent Elo within the range reported by the installed Stockfish binary; the validated local binary reports `1320-3190`. Moves use UCI notation: `e2e4`, `g1f3`, or `a7a8q`. Enter `quit`, `exit`, or `q` to leave the active workflow. Each accepted game move shows its classification, Stockfish choice, evaluation, suggested line, optional verified theme, and template/Gemini commentary. Incorrect practice answers also receive fresh full-strength Stockfish analysis and coaching commentary. Engine moves and scores vary by Stockfish version and search result.
+### Streamlit interface
+
+Start the browser interface from an activated environment:
+
+```bash
+python -m streamlit run streamlit_app.py
+```
+
+On Windows, the launcher activates the local virtual environment automatically:
+
+```cmd
+run_streamlit
+```
+
+The current Streamlit interface provides a PostgreSQL-backed progress dashboard,
+click-to-move due-position practice with Stockfish/Gemini feedback, and an
+Elo-selectable game against Stockfish. During games and practice, select a piece
+and then its destination square; the selected source is highlighted and promotion
+choices are supported. Browser games also show a White-perspective evaluation bar
+updated from a lightweight Stockfish search after each completed turn.
+
+The opening menu offers a game against Stockfish, review of due mistake positions, or a personal progress summary. Before a game, the user selects an opponent Elo within the range reported by the installed Stockfish binary; the validated local binary reports `1320-3190`. Moves use UCI notation: `e2e4`, `g1f3`, or `a7a8q`. Enter `quit`, `exit`, or `q` to leave the active workflow. Each accepted game move shows its classification, Stockfish choice, evaluation, suggested line, optional verified theme, and template/Gemini commentary. Incorrect practice answers also receive fresh full-strength Stockfish analysis and coaching commentary. Engine moves and scores vary by Stockfish version and search result.
 
 ## Testing
 
@@ -322,7 +361,7 @@ Optional coverage report:
 python -m pytest --cov=src
 ```
 
-The local suite covers game rules, engine process behavior, score normalization, move analysis, classification thresholds, mistake detection, commentary fallback, terminal flow, reporting, configuration, transactions, ORM relationships, repository aggregation, practice answer validation, and review scheduling. No CI workflow, coverage threshold, or published coverage percentage exists.
+The local suite covers game rules, engine process behavior, score normalization, move analysis, classification thresholds, mistake detection, commentary fallback, terminal flow, reporting, configuration, transactions, ORM relationships, repository aggregation, practice answer validation, review scheduling, and progress summaries. No CI workflow, coverage threshold, or published coverage percentage exists.
 
 ## Design and Reliability Decisions
 
@@ -336,15 +375,16 @@ The local suite covers game rules, engine process behavior, score normalization,
 
 ## Known Limitations
 
-- The interface is terminal-only and accepts UCI rather than SAN or board clicks.
+- The terminal accepts UCI; browser games and practice support click-to-move interaction.
 - Undo/reset are not exposed in the terminal.
 - Practice uses exact comparison with Stockfish's stored first-choice move; equally strong alternatives are currently marked incorrect.
 - Review intervals are fixed and do not yet adapt to difficulty, response time, or repeated failures.
+- The recent success trend requires 20 recorded practice attempts.
 - Mistake detection covers six conservative categories, not all tactical or positional motifs.
 - Stockfish analysis depth is fixed at 12 in the terminal, and MultiPV is absent.
 - PGN is printed and optionally stored, but no `.pgn` file export exists.
 - Only completed games are reported and persisted.
-- Template score wording uses White-normalized values and can be misleading for Black even though centipawn-loss calculation correctly reverses perspective.
+- The deterministic context extractor describes only a deliberately small set of directly provable move facts; deeper strategic explanations depend on Gemini and remain constrained by the supplied evidence.
 - Gemini response checks cannot prove that every generated sentence is semantically correct.
 - Repository tests use SQLite; no automated live-PostgreSQL integration test exists.
 - There is no authentication, GitHub Actions workflow, hosted demo, or license file.
@@ -352,9 +392,8 @@ The local suite covers game rules, engine process behavior, score normalization,
 ## Roadmap
 
 1. Add automated live-PostgreSQL integration tests for Docker Compose and Alembic.
-2. Add progress summaries over persisted games, review success, and recurring themes.
-3. Build a Streamlit browser interface on the existing service boundaries.
-4. Add configurable analysis depth and MultiPV comparison, including acceptance of equivalent practice moves.
-5. Add PGN file export and report/practice downloads.
-6. Add GitHub Actions for tests and migration checks.
-7. Add a short terminal demo GIF once a stable presentation flow exists.
+2. Complete the Streamlit interface with polished game reports and broader browser-level tests.
+3. Add configurable analysis depth and MultiPV comparison, including acceptance of equivalent practice moves.
+4. Add PGN file export and report/practice downloads.
+5. Add GitHub Actions for tests and migration checks.
+6. Add a short terminal demo GIF once a stable presentation flow exists.
