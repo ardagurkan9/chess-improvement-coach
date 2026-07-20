@@ -193,6 +193,10 @@ class PracticePositionRecord(Base):
     __tablename__ = "practice_positions"
     __table_args__ = (
         CheckConstraint("attempts >= 0", name="ck_nonnegative_attempts"),
+        CheckConstraint(
+            "successful_attempts >= 0 AND successful_attempts <= attempts",
+            name="ck_valid_successful_attempts",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -210,6 +214,7 @@ class PracticePositionRecord(Base):
         index=True,
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0)
+    successful_attempts: Mapped[int] = mapped_column(Integer, default=0)
     solved: Mapped[bool] = mapped_column(Boolean, default=False)
     next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
@@ -222,4 +227,38 @@ class PracticePositionRecord(Base):
     user: Mapped[UserRecord] = relationship(back_populates="practice_positions")
     source_mistake: Mapped[MistakeRecord] = relationship(
         back_populates="practice_positions"
+    )
+    attempt_history: Mapped[list[PracticeAttemptRecord]] = relationship(
+        back_populates="practice_position",
+        cascade="all, delete-orphan",
+        order_by="PracticeAttemptRecord.attempted_at",
+    )
+
+
+class PracticeAttemptRecord(Base):
+    """One immutable answer submitted for a saved practice position."""
+
+    __tablename__ = "practice_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    practice_position_id: Mapped[int] = mapped_column(
+        ForeignKey("practice_positions.id", ondelete="CASCADE"), index=True
+    )
+    attempted_move: Mapped[str] = mapped_column(String(5))
+    correct: Mapped[bool] = mapped_column(Boolean, index=True)
+    quality: Mapped[MoveQuality | None] = mapped_column(
+        enum_column(MoveQuality, name="practice_move_quality")
+    )
+    detected_theme: Mapped[MistakeTheme | None] = mapped_column(
+        enum_column(MistakeTheme, name="practice_mistake_theme")
+    )
+    commentary: Mapped[str | None] = mapped_column(Text)
+    commentary_source: Mapped[str | None] = mapped_column(String(32))
+    scheduled_review_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    practice_position: Mapped[PracticePositionRecord] = relationship(
+        back_populates="attempt_history"
     )

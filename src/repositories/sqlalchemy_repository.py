@@ -1,7 +1,9 @@
 """SQLAlchemy repository for games, mistakes, and practice positions."""
 
 import chess
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import case, func, or_, select
 
 from src.database import Database
 from src.db_models import (
@@ -9,11 +11,13 @@ from src.db_models import (
     MistakeRecord,
     MoveAnalysisRecord,
     PlayerColor,
+    PracticeAttemptRecord,
     PracticePositionRecord,
+    PracticeStatus,
     UserRecord,
 )
-from src.models import AnalyzedMove, GameReport, UserLevel
-from src.repositories.interfaces import MistakeSummary
+from src.models import AnalyzedMove, GameReport, MistakeTheme, MoveQuality, UserLevel
+from src.repositories.interfaces import MistakeSummary, PracticePosition
 
 
 class SQLAlchemyGameHistoryRepository:
@@ -119,3 +123,102 @@ class SQLAlchemyGameHistoryRepository:
         with self.database.session() as session:
             rows = session.execute(statement).all()
         return tuple(MistakeSummary(theme=theme, count=count) for theme, count in rows)
+
+    def due_practice_position(
+        self, *, username: str, as_of: datetime
+    ) -> PracticePosition | None:
+        """Return the oldest due position for the requested user."""
+        statement = (
+            select(PracticePositionRecord, MistakeRecord)
+            .join(PracticePositionRecord.user)
+            .join(PracticePositionRecord.source_mistake)
+            .where(
+                UserRecord.username == username.strip(),
+                or_(
+                    PracticePositionRecord.next_review_at.is_(None),
+                    PracticePositionRecord.next_review_at <= as_of,
+                ),
+            )
+            .order_by(
+                case(
+                    (PracticePositionRecord.next_review_at.is_(None), 0),
+                    else_=1,
+                ),
+                PracticePositionRecord.next_review_at,
+                PracticePositionRecord.created_at,
+            )
+            .limit(1)
+        )
+        with self.database.session() as session:
+            row = session.execute(statement).first()
+            if row is None:
+                return None
+            position, mistake = row
+            return self._practice_position(position, mistake)
+
+    def record_practice_attempt(
+        self,
+        *,
+        username: str,
+        position_id: int,
+        attempted_move: str,
+        correct: bool,
+        quality: MoveQuality | None,
+        detected_theme: MistakeTheme | None,
+        commentary: str | None,
+        commentary_source: str | None,
+        status: str,
+        solved: bool,
+        next_review_at: datetime,
+    ) -> PracticePosition:
+        """Update review counters and scheduling for one owned position."""
+        statement = (
+            select(PracticePositionRecord, MistakeRecord)
+            .join(PracticePositionRecord.user)
+            .join(PracticePositionRecord.source_mistake)
+            .where(
+                PracticePositionRecord.id == position_id,
+                UserRecord.username == username.strip(),
+            )
+        )
+        with self.database.session() as session:
+            row = session.execute(statement).first()
+            if row is None:
+                raise LookupError("Practice position was not found for this user.")
+            position, mistake = row
+            position.attempts += 1
+            if correct:
+                position.successful_attempts += 1
+            position.status = PracticeStatus(status)
+            position.solved = solved
+            position.next_review_at = next_review_at
+            session.add(
+                PracticeAttemptRecord(
+                    practice_position=position,
+                    attempted_move=attempted_move,
+                    correct=correct,
+                    quality=quality,
+                    detected_theme=detected_theme,
+                    commentary=commentary,
+                    commentary_source=commentary_source,
+                    scheduled_review_at=next_review_at,
+                )
+            )
+            session.flush()
+            return self._practice_position(position, mistake)
+
+    @staticmethod
+    def _practice_position(
+        position: PracticePositionRecord, mistake: MistakeRecord
+    ) -> PracticePosition:
+        return PracticePosition(
+            id=position.id,
+            fen=position.fen,
+            theme=mistake.theme,
+            evidence=tuple(mistake.evidence),
+            solution_moves=tuple(position.solution_moves),
+            status=position.status.value,
+            attempts=position.attempts,
+            successful_attempts=position.successful_attempts,
+            next_review_at=position.next_review_at,
+        )

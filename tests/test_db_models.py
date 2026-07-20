@@ -21,6 +21,7 @@ def test_metadata_contains_the_initial_coaching_tables() -> None:
         "move_analyses",
         "mistakes",
         "practice_positions",
+        "practice_attempts",
     }
 
 
