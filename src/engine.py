@@ -86,6 +86,35 @@ class StockfishEngine:
 
         return self._normalize_result(info)
 
+    def elo_range(self) -> tuple[int, int]:
+        """Return the Elo limits advertised by the running Stockfish binary."""
+        self.start()
+        assert self._engine is not None
+        elo_option = self._engine.options.get("UCI_Elo")
+        limit_option = self._engine.options.get("UCI_LimitStrength")
+        if elo_option is None or limit_option is None:
+            raise EngineConnectionError(
+                "This Stockfish binary does not support UCI Elo limiting."
+            )
+        if not isinstance(elo_option.min, int) or not isinstance(elo_option.max, int):
+            raise EngineConnectionError("Stockfish returned invalid UCI Elo limits.")
+        return elo_option.min, elo_option.max
+
+    def configure_strength(self, elo: int) -> None:
+        """Limit this engine process to a supported target Elo."""
+        minimum, maximum = self.elo_range()
+        if not minimum <= elo <= maximum:
+            raise ValueError(f"Elo must be between {minimum} and {maximum}.")
+        assert self._engine is not None
+        try:
+            self._engine.configure(
+                {"UCI_LimitStrength": True, "UCI_Elo": elo}
+            )
+        except (chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
+            raise EngineConnectionError(
+                f"Stockfish strength could not be configured: {error}"
+            ) from error
+
     def close(self) -> None:
         """Stop Stockfish safely. Calling this repeatedly is allowed."""
         engine, self._engine = self._engine, None

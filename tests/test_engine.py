@@ -86,3 +86,41 @@ def test_close_is_safe_before_start() -> None:
     client.close()
 
     assert not client.is_running
+
+
+def test_configure_strength_uses_stockfish_uci_elo_options(tmp_path: Path) -> None:
+    executable = tmp_path / "stockfish.exe"
+    executable.touch()
+    process = MagicMock()
+    process.options = {
+        "UCI_Elo": MagicMock(min=1320, max=3190),
+        "UCI_LimitStrength": MagicMock(),
+    }
+
+    with patch("src.engine.chess.engine.SimpleEngine.popen_uci", return_value=process):
+        client = StockfishEngine(executable)
+        assert client.elo_range() == (1320, 3190)
+        client.configure_strength(1800)
+
+    process.configure.assert_called_once_with(
+        {"UCI_LimitStrength": True, "UCI_Elo": 1800}
+    )
+
+
+def test_configure_strength_rejects_elo_outside_engine_range(
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "stockfish.exe"
+    executable.touch()
+    process = MagicMock()
+    process.options = {
+        "UCI_Elo": MagicMock(min=1320, max=3190),
+        "UCI_LimitStrength": MagicMock(),
+    }
+
+    with patch("src.engine.chess.engine.SimpleEngine.popen_uci", return_value=process):
+        client = StockfishEngine(executable)
+        with pytest.raises(ValueError, match="1320 and 3190"):
+            client.configure_strength(1000)
+
+    process.configure.assert_not_called()
