@@ -179,9 +179,7 @@ class MistakeRecord(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    move_analysis: Mapped[MoveAnalysisRecord] = relationship(
-        back_populates="mistake"
-    )
+    move_analysis: Mapped[MoveAnalysisRecord] = relationship(back_populates="mistake")
     practice_positions: Mapped[list[PracticePositionRecord]] = relationship(
         back_populates="source_mistake"
     )

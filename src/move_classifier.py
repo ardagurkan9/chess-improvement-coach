@@ -27,7 +27,9 @@ class ClassificationThresholds:
             self.inaccuracy,
             self.mistake,
         )
-        if values[0] < 0 or any(left >= right for left, right in zip(values, values[1:])):
+        if values[0] < 0 or any(
+            left >= right for left, right in zip(values, values[1:])
+        ):
             raise ValueError(
                 "Classification thresholds must be non-negative and strictly increasing."
             )
@@ -75,9 +77,7 @@ class MoveClassifier:
             "The move analysis has neither centipawn loss nor mate information."
         )
 
-    def _classify_centipawn_loss(
-        self, analysis: MoveAnalysis
-    ) -> MoveClassification:
+    def _classify_centipawn_loss(self, analysis: MoveAnalysis) -> MoveClassification:
         loss = analysis.centipawn_loss
         assert loss is not None
         if loss < 0:

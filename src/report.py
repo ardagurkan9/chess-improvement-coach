@@ -33,9 +33,7 @@ class GameReportBuilder:
             for record in moves
             if record.classification.centipawn_loss is not None
         ]
-        average_loss = (
-            round(sum(cp_losses) / len(cp_losses), 2) if cp_losses else None
-        )
+        average_loss = round(sum(cp_losses) / len(cp_losses), 2) if cp_losses else None
 
         counted = Counter(record.classification.quality for record in moves)
         quality_counts = {quality: counted.get(quality, 0) for quality in MoveQuality}
@@ -44,9 +42,7 @@ class GameReportBuilder:
             for record in moves
             if record.theme_detection is not None
         )
-        theme_counts = {
-            theme: counted_themes.get(theme, 0) for theme in MistakeTheme
-        }
+        theme_counts = {theme: counted_themes.get(theme, 0) for theme in MistakeTheme}
 
         return GameReport(
             result=game.result,
@@ -55,12 +51,8 @@ class GameReportBuilder:
             average_centipawn_loss=average_loss,
             quality_counts=quality_counts,
             theme_counts=theme_counts,
-            missed_mates=sum(
-                record.analysis.missed_forced_mate for record in moves
-            ),
-            allowed_mates=sum(
-                record.analysis.allowed_forced_mate for record in moves
-            ),
+            missed_mates=sum(record.analysis.missed_forced_mate for record in moves),
+            allowed_mates=sum(record.analysis.allowed_forced_mate for record in moves),
             biggest_error=max(moves, key=self._error_weight, default=None),
             improvement_areas=self._improvement_areas(
                 quality_counts, theme_counts, moves
@@ -71,8 +63,7 @@ class GameReportBuilder:
     @staticmethod
     def _error_weight(record: AnalyzedMove) -> tuple[int, int]:
         mate_blunder = int(
-            record.analysis.missed_forced_mate
-            or record.analysis.allowed_forced_mate
+            record.analysis.missed_forced_mate or record.analysis.allowed_forced_mate
         )
         loss = record.classification.centipawn_loss or 0
         return mate_blunder, loss
@@ -95,7 +86,9 @@ class GameReportBuilder:
         ):
             areas.append("Practice checking all forcing checks and mating threats.")
         if theme_counts[MistakeTheme.HANGING_PIECE]:
-            areas.append("Before moving, check whether every valuable piece is defended.")
+            areas.append(
+                "Before moving, check whether every valuable piece is defended."
+            )
         if theme_counts[MistakeTheme.MATERIAL_LOSS]:
             areas.append("Calculate forcing capture sequences before committing.")
         if theme_counts[MistakeTheme.KING_SAFETY]:
@@ -103,7 +96,9 @@ class GameReportBuilder:
                 "Preserve king shelter and review checks before moving pawns or the king."
             )
         if counts[MoveQuality.BLUNDER]:
-            areas.append("Before moving, check whether the move loses material or the game.")
+            areas.append(
+                "Before moving, check whether the move loses material or the game."
+            )
         if counts[MoveQuality.MISTAKE]:
             areas.append("Compare multiple candidate moves before committing.")
         if counts[MoveQuality.INACCURACY]:

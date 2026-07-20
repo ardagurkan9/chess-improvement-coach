@@ -57,15 +57,11 @@ class MoveAnalyzer:
         working_board = board.copy(stack=True)
         player_is_white = working_board.turn == chess.WHITE
         fen_before = working_board.fen()
-        before = self.engine.analyze(
-            working_board, depth=depth, time_limit=time_limit
-        )
+        before = self.engine.analyze(working_board, depth=depth, time_limit=time_limit)
 
         working_board.push(parsed_move)
         fen_after = working_board.fen()
-        after = self.engine.analyze(
-            working_board, depth=depth, time_limit=time_limit
-        )
+        after = self.engine.analyze(working_board, depth=depth, time_limit=time_limit)
 
         return MoveAnalysis(
             played_move=parsed_move.uci(),

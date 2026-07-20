@@ -34,9 +34,7 @@ def test_progress_service_scopes_summary_to_its_user() -> None:
     now = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
 
     assert service.summary(now=now) == empty_summary()
-    repository.progress_summary.assert_called_once_with(
-        username="student", as_of=now
-    )
+    repository.progress_summary.assert_called_once_with(username="student", as_of=now)
 
 
 def test_progress_service_rejects_empty_username() -> None:

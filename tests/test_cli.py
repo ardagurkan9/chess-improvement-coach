@@ -1,6 +1,7 @@
-import chess
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
+
+import chess
 
 from src.cli import TerminalApplication, TerminalGame
 from src.models import (

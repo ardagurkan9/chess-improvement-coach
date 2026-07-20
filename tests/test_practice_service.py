@@ -8,7 +8,6 @@ from src.models import CommentaryResult, EngineResult, MistakeTheme, UserLevel
 from src.repositories.interfaces import PracticePosition
 from src.services.practice_service import PracticeMoveError, PracticeService
 
-
 NOW = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
 
 
@@ -18,12 +17,19 @@ class FakeRepository:
         self.last_attempt: dict[str, object] | None = None
 
     def due_practice_position(self, *, username: str, as_of: datetime):
-        return self.position if self.position.next_review_at is None or self.position.next_review_at <= as_of else None
+        return (
+            self.position
+            if self.position.next_review_at is None
+            or self.position.next_review_at <= as_of
+            else None
+        )
 
     def practice_games(self, *, username: str, as_of: datetime):
         return ("game-list", username, as_of)
 
-    def practice_positions_for_game(self, *, username: str, game_id: int, as_of: datetime):
+    def practice_positions_for_game(
+        self, *, username: str, game_id: int, as_of: datetime
+    ):
         return (self.position,) if game_id == 1 else ()
 
     def record_practice_attempt(self, **values):
@@ -116,6 +122,46 @@ def test_wrong_legal_answer_is_analyzed_and_explained() -> None:
     assert repository.last_attempt["commentary_source"] == "gemini"
 
 
+def test_engine_equivalent_alternative_is_accepted() -> None:
+    practice, repository, engine, commentary = service(position())
+    engine.analyze.side_effect = (
+        EngineResult("e2e4", 100, None, ("e2e4",), 12),
+        EngineResult("g8f6", 72, None, ("g8f6",), 12),
+    )
+
+    result = practice.submit(
+        repository.position, "d2d4", level=UserLevel.BEGINNER, now=NOW
+    )
+
+    assert result.correct is True
+    assert result.analysis is not None
+    assert result.analysis.centipawn_loss == 28
+    assert result.classification is not None
+    assert result.updated_position.successful_attempts == 1
+    commentary.generate_for_review.assert_not_called()
+
+
+def test_alternative_that_misses_forced_mate_is_rejected() -> None:
+    practice, repository, engine, commentary = service(position())
+    engine.analyze.side_effect = (
+        EngineResult("e2e4", None, 3, ("e2e4",), 12),
+        EngineResult("g8f6", 50, None, ("g8f6",), 12),
+    )
+    commentary.generate_for_review.return_value = CommentaryResult(
+        "d2d4 misses the forced mate beginning with e2e4.",
+        UserLevel.BEGINNER,
+        source="template",
+    )
+
+    result = practice.submit(
+        repository.position, "d2d4", level=UserLevel.BEGINNER, now=NOW
+    )
+
+    assert result.correct is False
+    assert result.analysis is not None
+    assert result.analysis.missed_forced_mate is True
+
+
 @pytest.mark.parametrize(
     ("successes", "days", "status"),
     [(0, 1, "learning"), (1, 3, "learning"), (2, 7, "learning"), (3, 14, "mastered")],
@@ -138,6 +184,4 @@ def test_invalid_or_illegal_answer_is_rejected(move: str) -> None:
     practice, repository, _, _ = service(position())
 
     with pytest.raises(PracticeMoveError):
-        practice.submit(
-            repository.position, move, level=UserLevel.BEGINNER, now=NOW
-        )
+        practice.submit(repository.position, move, level=UserLevel.BEGINNER, now=NOW)

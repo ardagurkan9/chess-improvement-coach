@@ -45,6 +45,8 @@ class PracticeAttemptResult:
 class PracticeService:
     """Load due positions, evaluate answers, and schedule future reviews."""
 
+    EQUIVALENT_MOVE_MAX_LOSS_CP = 40
+
     def __init__(
         self,
         repository: GameHistoryRepository,
@@ -97,7 +99,7 @@ class PracticeService:
         level: UserLevel,
         now: datetime | None = None,
     ) -> PracticeAttemptResult:
-        """Evaluate an exact best-move answer and persist its next review."""
+        """Evaluate a best or engine-equivalent answer and persist its review."""
         if not position.solution_moves:
             raise PracticeMoveError("The practice position has no stored solution.")
         try:
@@ -109,7 +111,13 @@ class PracticeService:
             raise PracticeMoveError(f"Move {move.uci()} is illegal in this position.")
 
         best_move = position.solution_moves[0]
-        correct = move.uci() == best_move
+        exact_solution = move.uci() == best_move
+        analysis = None
+        classification = None
+        if not exact_solution:
+            analysis = self.move_analyzer.analyze_move(board, move, depth=self.depth)
+            classification = self.classifier.classify(analysis)
+        correct = exact_solution or self._is_engine_equivalent(analysis)
         current_time = now or datetime.now(timezone.utc)
         status, solved, next_review = self._schedule(
             correct=correct,
@@ -117,15 +125,11 @@ class PracticeService:
             now=current_time,
         )
 
-        analysis = None
-        classification = None
         detection = None
         explanation = None
         if not correct:
-            analysis = self.move_analyzer.analyze_move(
-                board, move, depth=self.depth
-            )
-            classification = self.classifier.classify(analysis)
+            assert analysis is not None
+            assert classification is not None
             if classification.quality in {
                 MoveQuality.INACCURACY,
                 MoveQuality.MISTAKE,
@@ -147,9 +151,7 @@ class PracticeService:
             quality=classification.quality if classification is not None else None,
             detected_theme=detection.theme if detection is not None else None,
             commentary=explanation.text if explanation is not None else None,
-            commentary_source=(
-                explanation.source if explanation is not None else None
-            ),
+            commentary_source=(explanation.source if explanation is not None else None),
             status=status,
             solved=solved,
             next_review_at=next_review,
@@ -164,6 +166,16 @@ class PracticeService:
             theme_detection=detection,
             commentary=explanation,
         )
+
+    @classmethod
+    def _is_engine_equivalent(cls, analysis: MoveAnalysis | None) -> bool:
+        """Accept alternatives whose verified loss stays within the tolerance."""
+        if analysis is None:
+            return False
+        if analysis.missed_forced_mate or analysis.allowed_forced_mate:
+            return False
+        loss = analysis.centipawn_loss
+        return loss is not None and loss <= cls.EQUIVALENT_MOVE_MAX_LOSS_CP
 
     @staticmethod
     def _schedule(

@@ -35,7 +35,7 @@ Chess Improvement Coach is a working terminal and Streamlit application for play
 | Interactive practice flow  | Implemented |
 | Personal progress summary  | Implemented |
 | Automated tests            | Implemented |
-| GitHub Actions CI          | Planned     |
+| GitHub Actions CI          | Implemented |
 
 The current application can complete and analyze terminal games, generate reports and PGN, persist coaching history, and present due mistake positions for review. The Docker Compose service, SQLAlchemy connection, PostgreSQL 17 schema, and Alembic revision `20260720_03` have been validated together locally. Automated repository tests still use SQLite rather than a live PostgreSQL service.
 
@@ -53,7 +53,7 @@ The current application can complete and analyze terminal games, generate report
 - [x] Interactive practice and spaced-repetition workflow
 - [x] Personal progress summaries
 - [ ] Streamlit browser interface (dashboard, practice, and click-to-move game flow implemented)
-- [ ] GitHub Actions CI and live-PostgreSQL integration tests
+- [x] GitHub Actions CI and live-PostgreSQL integration tests
 
 ## How It Works
 
@@ -63,7 +63,7 @@ User move -> legal-move validation -> before/after Stockfish analysis
           -> template/Gemini explanation -> report and optional persistence
 
 Saved mistake -> due-position lookup -> legal answer validation
-              -> exact stored-best-move check -> review scheduling
+              -> stored solution or engine-equivalent check -> review scheduling
               -> Stockfish analysis + template/Gemini explanation when incorrect
 ```
 
@@ -151,7 +151,7 @@ Optional persistence provides:
 - A terminal menu separates playing a new game from reviewing saved mistakes.
 - The repository retrieves the oldest practice position whose review time is due for the configured user.
 - The Streamlit practice flow first lists completed games with their mistake and due-review counts, then lets the user choose a due mistake from the selected game.
-- Answers must be legal UCI moves and are checked against the first move of the stored Stockfish principal variation.
+- Answers must be legal UCI moves. The stored Stockfish move is accepted directly; alternatives are analyzed and accepted when their loss is at most 40 centipawns and they do not miss or allow a forced mate.
 - Incorrect answers are reanalyzed by Stockfish and explained by Gemini when configured, with the same safe template fallback used during games.
 - Attempts and successful attempts are persisted separately. Each answer also creates an immutable history record containing the attempted move, correctness, optional quality/theme, commentary provenance, attempt time, and scheduled review time.
 - Correct reviews use 1, 3, 7, and then 14-day intervals; incorrect reviews return to a 1-day interval.
@@ -200,6 +200,8 @@ chess-improvement-coach/
 ├── run_streamlit.bat
 ├── requirements.txt
 ├── requirements-dev.txt
+├── requirements-dev.lock
+├── pyproject.toml
 ├── docker-compose.yml
 ├── alembic.ini
 ├── .env.example
@@ -231,6 +233,11 @@ chess-improvement-coach/
 │       ├── history_service.py
 │       ├── practice_service.py
 │       └── progress_service.py
+│   └── web/
+│       ├── components.py
+│       ├── pages.py
+│       └── resources.py
+├── .github/workflows/ci.yml
 └── tests/                   # pytest modules mirroring the application layers
 ```
 
@@ -274,6 +281,12 @@ For development and testing:
 
 ```bash
 python -m pip install -r requirements-dev.txt
+```
+
+For a reproducible development/CI environment, install the fully pinned lock file:
+
+```bash
+python -m pip install -r requirements-dev.lock
 ```
 
 Copy `.env.example` to `.env` and configure at least `STOCKFISH_PATH`. `.env` is ignored by Git.
@@ -361,7 +374,9 @@ Optional coverage report:
 python -m pytest --cov=src
 ```
 
-The local suite covers game rules, engine process behavior, score normalization, move analysis, classification thresholds, mistake detection, commentary fallback, terminal flow, reporting, configuration, transactions, ORM relationships, repository aggregation, practice answer validation, review scheduling, and progress summaries. No CI workflow, coverage threshold, or published coverage percentage exists.
+The suite covers game rules, engine process behavior, score normalization, move analysis, classification thresholds, mistake detection, commentary fallback, terminal flow, reporting, configuration, transactions, ORM relationships, repository aggregation, practice answer validation, review scheduling, and progress summaries. GitHub Actions runs Ruff linting, Ruff format checks, pytest, an 80% coverage threshold, Alembic migrations, and live PostgreSQL integration tests.
+
+To run the PostgreSQL tests locally against the Docker service, create a separate `chess_coach_test` database and set `TEST_DATABASE_URL` before running `pytest tests/integration`.
 
 ## Design and Reliability Decisions
 
@@ -377,7 +392,7 @@ The local suite covers game rules, engine process behavior, score normalization,
 
 - The terminal accepts UCI; browser games and practice support click-to-move interaction.
 - Undo/reset are not exposed in the terminal.
-- Practice uses exact comparison with Stockfish's stored first-choice move; equally strong alternatives are currently marked incorrect.
+- Equivalent practice alternatives require two additional engine searches and use a fixed 40-centipawn tolerance rather than MultiPV comparison.
 - Review intervals are fixed and do not yet adapt to difficulty, response time, or repeated failures.
 - The recent success trend requires 20 recorded practice attempts.
 - Mistake detection covers six conservative categories, not all tactical or positional motifs.
@@ -386,14 +401,12 @@ The local suite covers game rules, engine process behavior, score normalization,
 - Only completed games are reported and persisted.
 - The deterministic context extractor describes only a deliberately small set of directly provable move facts; deeper strategic explanations depend on Gemini and remain constrained by the supplied evidence.
 - Gemini response checks cannot prove that every generated sentence is semantically correct.
-- Repository tests use SQLite; no automated live-PostgreSQL integration test exists.
-- There is no authentication, GitHub Actions workflow, hosted demo, or license file.
+- Fast repository tests use SQLite, while marked integration tests exercise PostgreSQL 17 and Alembic in CI.
+- There is no authentication, hosted demo, or license file.
 
 ## Roadmap
 
-1. Add automated live-PostgreSQL integration tests for Docker Compose and Alembic.
-2. Complete the Streamlit interface with polished game reports and broader browser-level tests.
-3. Add configurable analysis depth and MultiPV comparison, including acceptance of equivalent practice moves.
-4. Add PGN file export and report/practice downloads.
-5. Add GitHub Actions for tests and migration checks.
-6. Add a short terminal demo GIF once a stable presentation flow exists.
+1. Complete the Streamlit interface with polished game reports and broader browser-level tests.
+2. Add configurable analysis depth and MultiPV comparison for more robust equivalent-move decisions.
+3. Add PGN file export and report/practice downloads.
+4. Add a short terminal demo GIF once a stable presentation flow exists.

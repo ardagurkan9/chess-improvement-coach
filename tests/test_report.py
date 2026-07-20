@@ -5,10 +5,10 @@ from src.game import ChessGame
 from src.models import (
     AnalyzedMove,
     EngineResult,
+    MistakeTheme,
     MoveAnalysis,
     MoveClassification,
     MoveQuality,
-    MistakeTheme,
     ThemeDetection,
 )
 from src.report import GameReportBuilder, ReportError
@@ -70,9 +70,7 @@ def test_report_aggregates_quality_and_centipawn_statistics() -> None:
 
 def test_mate_error_is_biggest_and_excluded_from_cp_average() -> None:
     cp_error = analyzed_move("a2a3", MoveQuality.BLUNDER, 500)
-    mate_error = analyzed_move(
-        "g2g4", MoveQuality.BLUNDER, None, allowed_mate=True
-    )
+    mate_error = analyzed_move("g2g4", MoveQuality.BLUNDER, None, allowed_mate=True)
 
     report = GameReportBuilder().build(
         completed_fools_mate(), [cp_error, mate_error], player_color=chess.WHITE

@@ -109,7 +109,9 @@ class ChessGame:
         The returned move is also appended to the game history.
         """
         if self.is_game_over:
-            raise GameOverError(f"The game is over ({self.result}); no more moves can be played.")
+            raise GameOverError(
+                f"The game is over ({self.result}); no more moves can be played."
+            )
 
         normalized_move = move_text.strip().lower()
         try:

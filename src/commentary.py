@@ -5,16 +5,15 @@ from typing import Any, Protocol
 
 from src.models import (
     CommentaryResult,
+    MistakeTheme,
     MoveAnalysis,
     MoveClassification,
     MoveContext,
     MoveQuality,
-    MistakeTheme,
     ThemeDetection,
     UserLevel,
 )
 from src.move_context import MoveContextAnalyzer
-
 
 QUALITY_OPENINGS: dict[MoveQuality, str] = {
     MoveQuality.BEST: "Nice move!",

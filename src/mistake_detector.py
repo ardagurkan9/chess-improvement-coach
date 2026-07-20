@@ -76,7 +76,9 @@ class MistakeDetector:
         captured_square = (
             reply.to_square
             if not board.is_en_passant(reply)
-            else chess.square(chess.square_file(reply.to_square), chess.square_rank(reply.from_square))
+            else chess.square(
+                chess.square_file(reply.to_square), chess.square_rank(reply.from_square)
+            )
         )
         captured = board.piece_at(captured_square)
         attacker = board.piece_at(reply.from_square)
@@ -95,9 +97,7 @@ class MistakeDetector:
         captured_value = PIECE_VALUES[captured.piece_type]
         attacker_value = PIECE_VALUES[attacker.piece_type]
         estimated_loss = (
-            max(0, captured_value - attacker_value)
-            if can_recapture
-            else captured_value
+            max(0, captured_value - attacker_value) if can_recapture else captured_value
         )
         if estimated_loss < 200:
             return None
@@ -112,9 +112,7 @@ class MistakeDetector:
         return ThemeDetection(MistakeTheme.HANGING_PIECE, evidence, 0.95)
 
     @classmethod
-    def _detect_material_loss(
-        cls, analysis: MoveAnalysis
-    ) -> ThemeDetection | None:
+    def _detect_material_loss(cls, analysis: MoveAnalysis) -> ThemeDetection | None:
         board = chess.Board(analysis.fen_after)
         player_color = chess.WHITE if analysis.player_is_white else chess.BLACK
         starting_balance = cls._material_balance(board, player_color)
@@ -168,7 +166,8 @@ class MistakeDetector:
             moved_piece is None
             or moved_piece.piece_type != chess.PAWN
             or king_square is None
-            or abs(chess.square_file(move.from_square) - chess.square_file(king_square)) > 1
+            or abs(chess.square_file(move.from_square) - chess.square_file(king_square))
+            > 1
             or not analysis.after.pv
         ):
             return None
@@ -207,6 +206,8 @@ class MistakeDetector:
         evidence = (
             (f"The move lost {loss} centipawns according to Stockfish.",)
             if loss is not None
-            else ("Stockfish identified an error without enough evidence for a specific theme.",)
+            else (
+                "Stockfish identified an error without enough evidence for a specific theme.",
+            )
         )
         return ThemeDetection(MistakeTheme.GENERAL_ERROR, evidence, 1.0)

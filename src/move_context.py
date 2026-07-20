@@ -4,7 +4,6 @@ import chess
 
 from src.models import MoveAnalysis, MoveContext
 
-
 PIECE_NAMES = {
     chess.PAWN: "pawn",
     chess.KNIGHT: "knight",
@@ -21,7 +20,16 @@ PIECE_VALUES = {
     chess.QUEEN: 9,
     chess.KING: 0,
 }
-MINOR_STARTING_SQUARES = {chess.B1, chess.G1, chess.C1, chess.F1, chess.B8, chess.G8, chess.C8, chess.F8}
+MINOR_STARTING_SQUARES = {
+    chess.B1,
+    chess.G1,
+    chess.C1,
+    chess.F1,
+    chess.B8,
+    chess.G8,
+    chess.C8,
+    chess.F8,
+}
 CENTER_SQUARES = {chess.D4, chess.E4, chess.D5, chess.E5}
 
 
@@ -58,9 +66,7 @@ class MoveContextAnalyzer:
                 f"The {piece_name} developed from its starting square to {to_name}."
             )
         if move.to_square in CENTER_SQUARES:
-            facts.append(
-                f"The {piece_name} moved to the central square {to_name}."
-            )
+            facts.append(f"The {piece_name} moved to the central square {to_name}.")
         if move.promotion is not None:
             facts.append(
                 f"The pawn promoted to a {PIECE_NAMES[move.promotion]} on {to_name}."
@@ -111,6 +117,12 @@ class MoveContextAnalyzer:
         targets = []
         for target_square in board.attacks(square):
             target = board.piece_at(target_square)
-            if target is not None and target.color != player_color and target.piece_type != chess.KING:
+            if (
+                target is not None
+                and target.color != player_color
+                and target.piece_type != chess.KING
+            ):
                 targets.append((target_square, target))
-        return max(targets, key=lambda item: PIECE_VALUES[item[1].piece_type], default=None)
+        return max(
+            targets, key=lambda item: PIECE_VALUES[item[1].piece_type], default=None
+        )

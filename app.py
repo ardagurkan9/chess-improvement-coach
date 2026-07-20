@@ -1,8 +1,8 @@
 """Application entry point for Chess Improvement Coach."""
 
-from src.config import ConfigurationError, load_settings
 from src.cli import TerminalApplication, TerminalGame
 from src.commentary import create_commentary_service
+from src.config import ConfigurationError, load_settings
 from src.database import Database
 from src.engine import EngineError, StockfishEngine
 from src.repositories.sqlalchemy_repository import SQLAlchemyGameHistoryRepository
@@ -22,9 +22,7 @@ def main() -> None:
         )
         database = Database(settings.database_url) if settings.database_url else None
         repository = (
-            SQLAlchemyGameHistoryRepository(database)
-            if database is not None
-            else None
+            SQLAlchemyGameHistoryRepository(database) if database is not None else None
         )
         history_service = (
             HistoryService(repository, username=settings.coach_username)

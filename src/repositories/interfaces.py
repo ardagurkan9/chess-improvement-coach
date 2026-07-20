@@ -92,9 +92,7 @@ class GameHistoryRepository(Protocol):
     def recurring_mistakes(self, *, username: str) -> tuple[MistakeSummary, ...]:
         """Return persisted mistake counts ordered from most common to least."""
 
-    def progress_summary(
-        self, *, username: str, as_of: datetime
-    ) -> ProgressSummary:
+    def progress_summary(self, *, username: str, as_of: datetime) -> ProgressSummary:
         """Aggregate the current user's game and practice progress."""
 
     def due_practice_position(

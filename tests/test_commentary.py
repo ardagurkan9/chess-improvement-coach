@@ -14,10 +14,10 @@ from src.commentary import (
 )
 from src.models import (
     EngineResult,
+    MistakeTheme,
     MoveAnalysis,
     MoveClassification,
     MoveQuality,
-    MistakeTheme,
     ThemeDetection,
     UserLevel,
 )
@@ -164,9 +164,7 @@ def test_gemini_sends_structured_grounded_payload() -> None:
     assert payload["played_move"] == "f2f3"
     assert payload["stockfish_best_move"] == "e2e4"
     assert payload["centipawn_loss"] == 153
-    assert payload["verified_move_context"] == [
-        "The pawn moved from f2 to f3."
-    ]
+    assert payload["verified_move_context"] == ["The pawn moved from f2 to f3."]
     assert "fen_before" not in payload
     assert "principal_variation" not in payload
     assert call["config"]["temperature"] == 0.2
@@ -276,15 +274,11 @@ def test_verified_theme_and_evidence_are_sent_to_gemini() -> None:
         0.95,
     )
 
-    gemini.generate(
-        move_analysis(), classification(), theme_detection=detection
-    )
+    gemini.generate(move_analysis(), classification(), theme_detection=detection)
 
     payload = json.loads(client.models.generate_content.call_args.kwargs["contents"])
     assert payload["verified_theme"] == "HANGING_PIECE"
-    assert payload["verified_evidence"] == [
-        "The knight can be captured by a pawn."
-    ]
+    assert payload["verified_evidence"] == ["The knight can be captured by a pawn."]
     assert payload["theme_confidence"] == 0.95
 
 

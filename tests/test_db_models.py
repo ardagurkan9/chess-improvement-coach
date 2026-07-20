@@ -75,7 +75,10 @@ def test_complete_coaching_history_can_be_persisted() -> None:
         assert stored_user is not None
         assert stored_practice is not None
         assert stored_user.games[0].move_analyses[0].mistake is not None
-        assert stored_user.games[0].move_analyses[0].mistake.theme is MistakeTheme.ALLOWED_MATE
+        assert (
+            stored_user.games[0].move_analyses[0].mistake.theme
+            is MistakeTheme.ALLOWED_MATE
+        )
         assert stored_practice.status is PracticeStatus.PENDING
         assert stored_practice.solution_moves == ["g2g3"]
 

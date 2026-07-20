@@ -1,8 +1,8 @@
 """SQLAlchemy repository for games, mistakes, and practice positions."""
 
-import chess
 from datetime import datetime
 
+import chess
 from sqlalchemy import case, func, or_, select
 
 from src.database import Database
@@ -81,7 +81,9 @@ class SQLAlchemyGameHistoryRepository:
                     quality=analyzed.classification.quality,
                     principal_variation=list(analysis.before.pv),
                     commentary=(
-                        analyzed.commentary.text if analyzed.commentary is not None else None
+                        analyzed.commentary.text
+                        if analyzed.commentary is not None
+                        else None
                     ),
                     commentary_source=(
                         analyzed.commentary.source
@@ -232,24 +234,28 @@ class SQLAlchemyGameHistoryRepository:
                 for position, mistake, move_analysis in rows
             )
 
-    def progress_summary(
-        self, *, username: str, as_of: datetime
-    ) -> ProgressSummary:
+    def progress_summary(self, *, username: str, as_of: datetime) -> ProgressSummary:
         """Aggregate portfolio-safe progress metrics from persisted records."""
         clean_username = username.strip()
         user_filter = UserRecord.username == clean_username
         with self.database.session() as session:
-            total_games = session.scalar(
-                select(func.count(GameRecord.id))
-                .join(GameRecord.user)
-                .where(user_filter)
-            ) or 0
-            total_moves = session.scalar(
-                select(func.count(MoveAnalysisRecord.id))
-                .join(MoveAnalysisRecord.game)
-                .join(GameRecord.user)
-                .where(user_filter)
-            ) or 0
+            total_games = (
+                session.scalar(
+                    select(func.count(GameRecord.id))
+                    .join(GameRecord.user)
+                    .where(user_filter)
+                )
+                or 0
+            )
+            total_moves = (
+                session.scalar(
+                    select(func.count(MoveAnalysisRecord.id))
+                    .join(MoveAnalysisRecord.game)
+                    .join(GameRecord.user)
+                    .where(user_filter)
+                )
+                or 0
+            )
             mistake_rows = session.execute(
                 select(MistakeRecord.theme, func.count(MistakeRecord.id))
                 .join(MistakeRecord.move_analysis)
@@ -260,7 +266,9 @@ class SQLAlchemyGameHistoryRepository:
                 .order_by(func.count(MistakeRecord.id).desc(), MistakeRecord.theme)
             ).all()
             status_rows = session.execute(
-                select(PracticePositionRecord.status, func.count(PracticePositionRecord.id))
+                select(
+                    PracticePositionRecord.status, func.count(PracticePositionRecord.id)
+                )
                 .join(PracticePositionRecord.user)
                 .where(user_filter)
                 .group_by(PracticePositionRecord.status)
@@ -287,17 +295,20 @@ class SQLAlchemyGameHistoryRepository:
                 .join(PracticePositionRecord.user)
                 .where(user_filter)
             ).one()
-            due_positions = session.scalar(
-                select(func.count(PracticePositionRecord.id))
-                .join(PracticePositionRecord.user)
-                .where(
-                    user_filter,
-                    or_(
-                        PracticePositionRecord.next_review_at.is_(None),
-                        PracticePositionRecord.next_review_at <= as_of,
-                    ),
+            due_positions = (
+                session.scalar(
+                    select(func.count(PracticePositionRecord.id))
+                    .join(PracticePositionRecord.user)
+                    .where(
+                        user_filter,
+                        or_(
+                            PracticePositionRecord.next_review_at.is_(None),
+                            PracticePositionRecord.next_review_at <= as_of,
+                        ),
+                    )
                 )
-            ) or 0
+                or 0
+            )
             next_review_at = session.scalar(
                 select(func.min(PracticePositionRecord.next_review_at))
                 .join(PracticePositionRecord.user)
@@ -308,8 +319,7 @@ class SQLAlchemyGameHistoryRepository:
             )
 
         mistakes = tuple(
-            MistakeSummary(theme=theme, count=count)
-            for theme, count in mistake_rows
+            MistakeSummary(theme=theme, count=count) for theme, count in mistake_rows
         )
         statuses = {status: count for status, count in status_rows}
         total_attempts, correct_attempts = attempt_totals

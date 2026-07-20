@@ -107,9 +107,7 @@ class StockfishEngine:
             raise ValueError(f"Elo must be between {minimum} and {maximum}.")
         assert self._engine is not None
         try:
-            self._engine.configure(
-                {"UCI_LimitStrength": True, "UCI_Elo": elo}
-            )
+            self._engine.configure({"UCI_LimitStrength": True, "UCI_Elo": elo})
         except (chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
             raise EngineConnectionError(
                 f"Stockfish strength could not be configured: {error}"
@@ -178,7 +176,9 @@ class StockfishEngine:
         score_cp = None if mate is not None else white_score.score()
         moves = tuple(move.uci() for move in pv if isinstance(move, chess.Move))
         if not moves:
-            raise EngineAnalysisError("Stockfish returned an invalid principal variation.")
+            raise EngineAnalysisError(
+                "Stockfish returned an invalid principal variation."
+            )
 
         depth_value = info.get("depth")
         return EngineResult(

@@ -8,6 +8,7 @@ import chess
 from src.analysis import AnalysisError, MoveAnalyzer, PositionAnalyzer
 from src.commentary import CommentaryGenerator, CommentaryService
 from src.game import ChessGame, MoveError
+from src.mistake_detector import MistakeDetector
 from src.models import (
     AnalyzedMove,
     CommentaryResult,
@@ -19,7 +20,6 @@ from src.models import (
     ThemeDetection,
     UserLevel,
 )
-from src.mistake_detector import MistakeDetector
 from src.move_classifier import MoveClassifier
 from src.report import GameReportBuilder
 from src.services.history_service import HistoryService
@@ -139,9 +139,7 @@ class TerminalGame:
                 }
                 else None
             )
-            commentary = self._show_analysis(
-                analysis, classification, theme_detection
-            )
+            commentary = self._show_analysis(analysis, classification, theme_detection)
             self.analyzed_moves.append(
                 AnalyzedMove(
                     analysis,
@@ -162,9 +160,13 @@ class TerminalGame:
             "advanced": UserLevel.ADVANCED,
         }
         while True:
-            choice = self.input(
-                "Choose explanation level [1=Beginner, 2=Intermediate, 3=Advanced]: "
-            ).strip().lower()
+            choice = (
+                self.input(
+                    "Choose explanation level [1=Beginner, 2=Intermediate, 3=Advanced]: "
+                )
+                .strip()
+                .lower()
+            )
             if choice in options:
                 return options[choice]
             self.output("Please enter 1, 2, or 3.")
@@ -260,10 +262,7 @@ class TerminalGame:
             )
             summaries = self.history_service.recurring_mistakes()
         except Exception as error:
-            self.output(
-                "Game history could not be saved "
-                f"({type(error).__name__})."
-            )
+            self.output(f"Game history could not be saved ({type(error).__name__}).")
             return
 
         self.output(f"Game history saved with ID {game_id}.")
@@ -354,9 +353,7 @@ class TerminalApplication:
             self.output("1. Play against Stockfish")
             self.output("2. Review past mistakes")
             self.output("3. View progress")
-            choice = self.input(
-                "Choose an option [1/2/3, or 'quit']: "
-            ).strip().lower()
+            choice = self.input("Choose an option [1/2/3, or 'quit']: ").strip().lower()
             if choice in {"1", "play"}:
                 return self.game.run()
             if choice in {"2", "review", "practice"}:
@@ -376,10 +373,7 @@ class TerminalApplication:
         try:
             summary = self.progress_service.summary()
         except Exception as error:
-            self.output(
-                "Progress could not be loaded "
-                f"({type(error).__name__})."
-            )
+            self.output(f"Progress could not be loaded ({type(error).__name__}).")
             return
 
         self.output("")
@@ -394,8 +388,7 @@ class TerminalApplication:
         )
         if summary.mistake_counts:
             themes = ", ".join(
-                f"{item.theme.value}: {item.count}"
-                for item in summary.mistake_counts
+                f"{item.theme.value}: {item.count}" for item in summary.mistake_counts
             )
             self.output(f"Mistake themes: {themes}")
         self.output(
@@ -406,13 +399,8 @@ class TerminalApplication:
         )
         self.output(f"Due now: {summary.due_positions}")
         self.output(f"Practice attempts: {summary.total_practice_attempts}")
-        self.output(
-            f"Correct answers: {summary.correct_practice_attempts}"
-        )
-        self.output(
-            "Success rate: "
-            + self._format_percentage(summary.success_rate)
-        )
+        self.output(f"Correct answers: {summary.correct_practice_attempts}")
+        self.output("Success rate: " + self._format_percentage(summary.success_rate))
         self.output(
             "Recent success rate (last 10): "
             + self._format_percentage(summary.recent_success_rate)
@@ -449,8 +437,7 @@ class TerminalApplication:
                 position = self.practice_service.next_position()
             except Exception as error:
                 self.output(
-                    "Practice positions could not be loaded "
-                    f"({type(error).__name__})."
+                    f"Practice positions could not be loaded ({type(error).__name__})."
                 )
                 return
             if position is None:
@@ -465,9 +452,7 @@ class TerminalApplication:
             self.output(f"Previous attempts: {position.attempts}")
 
             while True:
-                move_text = self.input(
-                    "Find the best move (UCI, or 'quit'): "
-                ).strip()
+                move_text = self.input("Find the best move (UCI, or 'quit'): ").strip()
                 if move_text.lower() in {"quit", "exit", "q"}:
                     return
                 try:
@@ -481,8 +466,7 @@ class TerminalApplication:
                     continue
                 except Exception as error:
                     self.output(
-                        "Practice answer could not be saved "
-                        f"({type(error).__name__})."
+                        f"Practice answer could not be saved ({type(error).__name__})."
                     )
                     return
                 break
@@ -490,9 +474,7 @@ class TerminalApplication:
             if result.correct:
                 self.output(f"Correct! {result.best_move} is the stored best move.")
             else:
-                self.output(
-                    f"Not quite. The stored best move was {result.best_move}."
-                )
+                self.output(f"Not quite. The stored best move was {result.best_move}.")
                 if result.classification is not None:
                     self.output(
                         "Analysis: "

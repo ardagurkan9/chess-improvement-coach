@@ -1,5 +1,6 @@
-import chess
 from datetime import datetime, timedelta, timezone
+
+import chess
 from sqlalchemy import select
 
 from src.database import Database

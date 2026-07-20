@@ -22,9 +22,7 @@ def analysis_for(fen: str, move_uci: str) -> MoveAnalysis:
 
 
 def test_describes_a_central_pawn_move() -> None:
-    context = MoveContextAnalyzer().analyze(
-        analysis_for(chess.STARTING_FEN, "e2e4")
-    )
+    context = MoveContextAnalyzer().analyze(analysis_for(chess.STARTING_FEN, "e2e4"))
 
     assert context.piece == "pawn"
     assert context.from_square == "e2"
@@ -33,9 +31,7 @@ def test_describes_a_central_pawn_move() -> None:
 
 
 def test_describes_minor_piece_development() -> None:
-    context = MoveContextAnalyzer().analyze(
-        analysis_for(chess.STARTING_FEN, "g1f3")
-    )
+    context = MoveContextAnalyzer().analyze(analysis_for(chess.STARTING_FEN, "g1f3"))
 
     assert "The knight developed from its starting square to f3." in context.facts
 

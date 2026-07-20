@@ -1,0 +1,22 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "postgres: requires a live PostgreSQL database",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "src/web/pages.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
